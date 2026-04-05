@@ -40,6 +40,7 @@
 </head>
 <body class="bg-[#131313] text-[#e5e2e1] selection:bg-[#adc6ff]/30">
 
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
 <header class="fixed top-0 w-full z-50 bg-[#131313]/60 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-[0_0_20px_rgba(59,130,246,0.12)]">
     <div class="flex items-center gap-4 md:gap-8">
         <button id="sidebar-toggle" class="text-on-surface hover:text-primary transition-colors flex items-center justify-center">
@@ -52,73 +53,145 @@
             <input id="player-search" class="bg-transparent border-none focus:ring-0 text-sm font-label uppercase tracking-widest p-0 w-48 placeholder:text-on-surface-variant/40 outline-none text-[#e5e2e1]" placeholder="LOCATE_PLAYER..." type="text"/>
         </div>
     </div>
+
     <div class="flex items-center gap-6">
         <div class="flex items-center gap-3">
             <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
             <div class="flex flex-col items-end">
-                <span class="font-label font-bold text-primary tracking-tighter leading-tight text-sm">1,450 ELO</span>
-                <span class="font-label text-[10px] tracking-widest text-[#b0bec5] font-bold">SILVER II</span>
+                <!-- FIX: dynamic ELO from sessionStorage -->
+                <span id="header-elo-display" class="font-label font-bold text-primary tracking-tighter leading-tight text-sm">— ELO</span>
+                <span id="header-rank-display" class="font-label text-[10px] tracking-widest text-[#b0bec5] font-bold">—</span>
             </div>
             <span class="material-symbols-outlined text-on-surface-variant hover:text-primary cursor-pointer transition-colors ml-2">notifications</span>
         </div>
     </div>
 </header>
 
-<aside id="sidebar" class="fixed left-0 top-0 h-full w-64 z-40 bg-[#1C1B1B] border-r border-[#353534]/15 flex flex-col py-8 gap-4 pt-20 transform -translate-x-full md:translate-x-0">
+<!-- ── Sidebar ──────────────────────────────────────────────────────────────── -->
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-64 z-40 bg-[#1C1B1B] border-r border-[#353534]/15 flex flex-col py-8 gap-4 pt-20 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
     <div class="px-6 mb-4 flex items-center gap-3">
         <div class="w-1.5 h-8 bg-primary"></div>
         <div>
-            <p id="operator-name-display" class="font-label text-sm uppercase tracking-widest text-[#ADC6FF]">OPERATOR_01</p>
-            <div class="flex items-center gap-1.5">
+            <!-- FIX: id added so JS can inject the real logged-in name -->
+            <p class="font-label text-sm uppercase tracking-widest text-[#ADC6FF]" id="operator-name-display">OPERATOR</p>
+            <!-- FIX: id added so JS can inject the real ELO -->
+            <p class="font-label text-[10px] uppercase tracking-widest text-primary/60 mt-0.5" id="operator-elo-display">— ELO</p>
+            <div class="flex items-center gap-1.5 mt-1">
                 <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
                 <p class="font-label text-[10px] uppercase tracking-widest text-secondary">STATUS: ONLINE</p>
             </div>
         </div>
     </div>
     <nav class="flex flex-col">
+        <!-- Active page: Lobby -->
         <a class="px-6 py-4 flex items-center gap-4 text-[#ADC6FF] border-l-2 border-[#ADC6FF] bg-[#201F1F] font-label text-sm uppercase tracking-widest transition-all duration-300" href="lobby_command_center.html">
             <span class="material-symbols-outlined">terminal</span> Command Center
         </a>
-        <a class="px-6 py-4 flex items-center gap-4 text-[#ADC6FF] border-l-2 border-[#ADC6FF] bg-[#201F1F] font-label text-sm uppercase tracking-widest transition-all duration-300" href="leaderboard.html">
+        <a class="px-6 py-4 flex items-center gap-4 text-[#E5E2E1]/60 hover:text-[#ADC6FF] hover:bg-[#201F1F] font-label text-sm uppercase tracking-widest transition-all duration-300" href="leaderboard.html">
             <span class="material-symbols-outlined">leaderboard</span> Leaderboard
         </a>
         <a class="px-6 py-4 flex items-center gap-4 text-[#E5E2E1]/60 hover:text-[#ADC6FF] hover:bg-[#201F1F] font-label text-sm uppercase tracking-widest transition-all duration-300" href="#">
             <span class="material-symbols-outlined">swords</span> Matchmaking
         </a>
-        <a class="px-6 py-4 flex items-center gap-4 text-[#ffb4ab]/70 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 font-label text-sm uppercase tracking-widest transition-all duration-300" href="login.html">
+        <!-- FIX: logout calls /logout on backend to set is_online=FALSE, then redirects -->
+        <a class="px-6 py-4 flex items-center gap-4 text-[#ffb4ab]/70 hover:text-[#ffb4ab] hover:bg-[#ffb4ab]/10 font-label text-sm uppercase tracking-widest transition-all duration-300"
+           href="#" onclick="handleLogout(event)">
             <span class="material-symbols-outlined">logout</span> Disconnect
         </a>
     </nav>
 </aside>
 
+<!-- ── Main ─────────────────────────────────────────────────────────────────── -->
 <main id="main-canvas" class="pt-24 pb-24 px-6 min-h-screen transition-all duration-300 md:ml-64">
     <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
         <div>
             <h1 class="font-headline text-4xl md:text-5xl font-black uppercase tracking-tighter text-on-surface">Lobby_Environment</h1>
-            <p class="font-body text-on-surface-variant/60 mt-2 max-w-md">Connect with active operators in the sector. Challenges are live. Latency optimized.</p>
+            <p class="font-body text-on-surface-variant/60 mt-2 max-w-md">Connect with active operators in the sector. Challenges are live.</p>
+        </div>
+        <!-- Live player count -->
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+            <span id="online-count" class="font-label text-xs text-secondary tracking-widest uppercase">— ONLINE</span>
         </div>
     </div>
 
+    <!-- Filters + Sort -->
     <div class="flex flex-wrap items-center gap-4 mb-8">
         <button id="btn-filter-all" class="px-4 py-2 bg-primary text-[#002e6a] font-label text-xs font-bold rounded uppercase tracking-widest transition-colors">All_Players</button>
         <button id="btn-filter-gm" class="px-4 py-2 bg-surface-container text-on-surface-variant font-label text-xs font-bold rounded uppercase tracking-widest hover:bg-surface-bright transition-colors">Grandmasters</button>
         
+        <!-- Mobile search -->
+        <div class="flex md:hidden items-center bg-surface-container-highest/30 px-3 py-1.5 rounded-lg border border-outline-variant/10 flex-1">
+            <span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+            <input id="player-search-mobile" class="bg-transparent border-none focus:ring-0 text-sm font-label uppercase tracking-widest p-0 w-full placeholder:text-on-surface-variant/40 outline-none text-[#e5e2e1]" placeholder="LOCATE_PLAYER..." type="text"/>
+        </div>
+
         <div class="ml-auto flex items-center gap-2 text-on-surface-variant/60 bg-surface-container px-3 py-1.5 rounded-lg border border-outline-variant/10 hover:border-[#adc6ff]/30 transition-colors">
             <span class="material-symbols-outlined text-sm">filter_list</span>
             <select id="sort-select" class="bg-transparent border-none text-xs uppercase tracking-widest font-label focus:ring-0 cursor-pointer appearance-none outline-none text-on-surface-variant">
                 <option value="elo-desc" class="bg-[#1c1b1b]">Sort: Rating (Highest)</option>
-                <option value="elo-asc" class="bg-[#1c1b1b]">Sort: Rating (Lowest)</option>
+                <option value="elo-asc"  class="bg-[#1c1b1b]">Sort: Rating (Lowest)</option>
                 <option value="win-desc" class="bg-[#1c1b1b]">Sort: Win Rate (Highest)</option>
-                <option value="win-asc" class="bg-[#1c1b1b]">Sort: Win Rate (Lowest)</option>
+                <option value="win-asc"  class="bg-[#1c1b1b]">Sort: Win Rate (Lowest)</option>
                 <option value="name-asc" class="bg-[#1c1b1b]">Sort: Name (A-Z)</option>
-                <option value="name-desc" class="bg-[#1c1b1b]">Sort: Name (Z-A)</option>
+                <option value="name-desc"class="bg-[#1c1b1b]">Sort: Name (Z-A)</option>
             </select>
         </div>
     </div>
 
+    <!-- Player Grid — populated by lobby_command_center.js -->
     <div id="player-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- Loading state shown while first fetch completes -->
+        <div class="col-span-full flex flex-col items-center justify-center py-20 opacity-60">
+            <span class="material-symbols-outlined text-6xl text-on-surface-variant/40 mb-4 animate-pulse">radar</span>
+            <p class="font-headline font-bold text-xl text-on-surface-variant tracking-widest">SCANNING SECTOR...</p>
         </div>
+    </div>
 </main>
+
+<script>
+    // ── Header ELO / rank display from sessionStorage ──────────────────────
+    function getRankName(elo) {
+        if (elo >= 2800) return "GRANDMASTER";
+        if (elo >= 2666) return "MASTER III";
+        if (elo >= 2533) return "MASTER II";
+        if (elo >= 2400) return "MASTER I";
+        if (elo >= 2300) return "DIAMOND III";
+        if (elo >= 2200) return "DIAMOND II";
+        if (elo >= 2100) return "DIAMOND I";
+        if (elo >= 2000) return "PLATINUM III";
+        if (elo >= 1900) return "PLATINUM II";
+        if (elo >= 1800) return "PLATINUM I";
+        if (elo >= 1700) return "GOLD III";
+        if (elo >= 1600) return "GOLD II";
+        if (elo >= 1500) return "GOLD I";
+        if (elo >= 1400) return "SILVER III";
+        if (elo >= 1300) return "SILVER II";
+        if (elo >= 1200) return "SILVER I";
+        if (elo >= 800)  return "BRONZE III";
+        if (elo >= 400)  return "BRONZE II";
+        return "BRONZE I";
+    }
+
+    const elo = parseInt(sessionStorage.getItem("arena_auth_elo") || "0");
+    if (elo) {
+        document.getElementById('header-elo-display').innerText = `${elo.toLocaleString()} ELO`;
+        document.getElementById('header-rank-display').innerText = getRankName(elo);
+    }
+
+    // ── Logout: hit backend first so is_online is set FALSE ───────────────
+    async function handleLogout(e) {
+        e.preventDefault();
+        try {
+            await fetch('http://localhost:5001/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (_) {}
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+    }
+</script>
 
 </body>
 </html>
