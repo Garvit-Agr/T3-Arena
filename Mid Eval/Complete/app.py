@@ -1,39 +1,57 @@
 import os
+import base64
+import pymongo
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 import facial_recognition_module
+from dotenv import load_dotenv
+
+# Load environment variables (like your MONGO_URI)
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "some_random_secret_string" 
 CORS(app)
 
-# Path to your mock database folder
-DATA_PATH = "Fetch_data"
-
-def load_mock_database():
+def load_mongo_database():
     """
-    Scans the mock_db folder and creates a dictionary:
-    { "filename_without_extension": image_bytes }
+    Connects to MongoDB, retrieves all profile images, 
+    and decodes them back into bytes to create the dictionary:
+    { "uid": image_bytes }
     """
-    db = {}
-    if not os.path.exists(DATA_PATH):
-        print(f"⚠️ Warning: {DATA_PATH} folder not found.")
-        return db
-
-    for filename in os.listdir(DATA_PATH):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            # Get name without extension (e.g., 'garvit.jpg' -> 'garvit')
-            user_id = os.path.splitext(filename)[0]
-            file_path = os.path.join(DATA_PATH, filename)
-            
-            with open(file_path, "rb") as image_file:
-                db[user_id] = image_file.read()
+    db_dict = {}
     
-    return db
+    try:
+        # 1. Connect to MongoDB (Defaults to localhost if no .env is set)
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+        client = pymongo.MongoClient(mongo_uri)
+        db = client[os.getenv("DB_NAME", "arena_db")]
+        collection = db["profile_images"]
+        
+        # 2. Fetch all users from the database
+        all_users = collection.find({})
+        
+        # 3. Build the dictionary
+        for user in all_users:
+            uid = user.get("uid")
+            base64_image_data = user.get("image_data")
+            
+            if uid and base64_image_data:
+                # Decode the base64 string back into raw bytes
+                # This perfectly mimics what 'image_file.read()' used to do
+                image_bytes = base64.b64decode(base64_image_data)
+                db_dict[uid] = image_bytes
+                
+        client.close()
+        return db_dict
+
+    except Exception as e:
+        print(f"⚠️ Failed to load from MongoDB: {e}")
+        return db_dict
 
 @app.route('/', methods=['GET'])
 def home():
-    return "✅ Face Recognition API is up and running!"
+    return "✅ Face Recognition API is up and running with MongoDB!"
 
 @app.route('/login', methods=['POST'])
 def handle_login():
@@ -50,12 +68,12 @@ def handle_login():
         else:
             cleaned_string = base64_string
             
-        # 2. CREATE A MOCK DATABASE DYNAMICALLY
-        # This now loads EVERYONE in the mock_db folder
-        mock_database = load_mock_database()
+        # 2. FETCH DATABASE FROM MONGODB
+        # This pulls all stored user encodings directly from the database
+        mock_database = load_mongo_database()
         
         if not mock_database:
-            return jsonify({"success": False, "message": "Database is empty"}), 500
+            return jsonify({"success": False, "message": "Database is empty or could not connect"}), 500
         
         # 3. USE THE BLACK BOX!
         matched_uid = facial_recognition_module.find_closest_match(cleaned_string, mock_database)
@@ -64,7 +82,7 @@ def handle_login():
         if matched_uid is not None:
             session['uid'] = matched_uid
             print(f"✅ MATCH FOUND! Logged in as: {matched_uid}")
-            # Matching the keys expected by your login.js
+            # Matching the keys expected by your frontend login
             return jsonify({
                 "success": True, 
                 "name": matched_uid
@@ -78,5 +96,5 @@ def handle_login():
         return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == '__main__':
-    # Using 5000, but remember to change to 5001 if on a Mac with AirPlay issues
-    app.run(debug=True, port=5000)
+    # Using 5001 to avoid AirPlay port conflicts on Mac
+    app.run(debug=True, port=5001)

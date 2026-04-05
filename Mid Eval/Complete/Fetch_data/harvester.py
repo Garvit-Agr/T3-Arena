@@ -105,6 +105,6 @@ def harvest_images(csv_filepath):
     print("🔌 MongoDB connection safely closed.")
 
 if __name__ == "__main__":
-    project_root = os.path.join(current_dir, "..", "..")
+    project_root = os.path.join(current_dir)
     csv_path = os.path.join(project_root, 'batch_data.csv')
     harvest_images(csv_path)
