@@ -6,6 +6,10 @@ app = Flask(__name__)
 app.secret_key = "some_random_secret_string" 
 CORS(app)
 
+@app.route('/', methods=['GET'])
+def home():
+    return "✅ Face Recognition API is up and running!"
+
 @app.route('/login', methods=['POST'])
 def handle_login():
     incoming_data = request.get_json()
