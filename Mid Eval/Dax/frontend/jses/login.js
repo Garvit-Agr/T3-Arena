@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusText.classList.replace("text-on-surface", "text-secondary");
                 
                 setTimeout(() => {
-                    window.location.href = "/lobby"; 
+                    window.location.href = "../htmls/lobby_command_center.html"; 
                 }, 1500);
             } else {
                 throw new Error("Face not recognized in database.");
