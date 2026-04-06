@@ -207,12 +207,19 @@
     // ── Logout ─────────────────────────────────────────────────────────────
     async function handleLogout(e) {
         e.preventDefault();
+        
+        // Grab the specific UID for this exact tab
+        const myUid = sessionStorage.getItem("arena_auth_uid"); 
+        
         try {
             await fetch('http://localhost:5001/logout', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: myUid }), // Send the exact UID
                 credentials: 'include'
             });
         } catch (_) {}
+        
         sessionStorage.clear();
         window.location.href = 'login.html';
     }

@@ -99,7 +99,7 @@ def handle_login():
         return jsonify({
             "success":    True,
             "uid":        user['uid'],
-            "name":       user['name'],      # ← real name, not UID
+            "name":       user['name'],      
             "elo_rating": user['elo_rating']
         }), 200
 
@@ -112,28 +112,42 @@ def handle_login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
-    uid = session.get('uid')
-    if uid:
+    # 1. Grab the exact UID from the frontend JSON (from the closing tab)
+    incoming_data = request.get_json(silent=True) or {}
+    frontend_uid = incoming_data.get('uid')
+    
+    # 2. Grab the UID from the browser's shared session cookie
+    cookie_uid = session.get('uid')
+    
+    # 3. Target the specific tab that sent the request (fallback to cookie if needed)
+    target_uid = frontend_uid if frontend_uid else cookie_uid
+    
+    print(f"\n🔓 [LOGOUT] Logout request received for UID: '{target_uid}'")
+    
+    if target_uid:
         try:
-            db = get_mysql()
+            db     = get_mysql()
             cursor = db.cursor()
-            cursor.execute("UPDATE users SET is_online = FALSE WHERE uid = %s", (uid,))
+            cursor.execute("UPDATE users SET is_online = FALSE WHERE uid = %s", (target_uid,))
             db.commit()
             cursor.close(); db.close()
+            print(f"✅ [MySQL] is_online set to FALSE for '{target_uid}'.")
         except Exception as e:
-            print(f"⚠️  Logout DB error: {e}")
-    session.clear()
-    return jsonify({"success": True}), 200
+            print(f"⚠️  [MySQL] Logout update failed: {e}")
+            
+    # 4. THE MAGIC FIX: Only clear the browser cookie if the closing tab matches the active cookie!
+    if target_uid == cookie_uid:
+        session.clear()
+        print(f"✅ [Session] Session cleared.")
+    else:
+        print(f"ℹ️ [Session] Cookie kept active for the other open tab ({cookie_uid}).")
 
+    return jsonify({"success": True}), 200
 
 # ── Phase 3: Players list for Lobby ──────────────────────────────────────────
 
 @app.route('/api/players', methods=['GET'])
 def get_players():
-    """
-    Returns all players with their status and computed winrate.
-    Called every 5 seconds by lobby_command_center.js.
-    """
     try:
         db = get_mysql()
         cursor = db.cursor(dictionary=True)
@@ -164,7 +178,6 @@ def get_players():
             wins    = p['wins'] or 0
             winrate = round(wins / total * 100, 1) if total > 0 else 0.0
 
-            # Map DB booleans → status string the frontend expects
             if p['is_fighting']:
                 status = "fighting"
             elif p['is_online']:
@@ -191,9 +204,6 @@ def get_players():
 
 @app.route('/api/leaderboard', methods=['GET'])
 def get_leaderboard():
-    """
-    Returns all players sorted by elo_rating DESC for the leaderboard page.
-    """
     try:
         db = get_mysql()
         cursor = db.cursor(dictionary=True)
