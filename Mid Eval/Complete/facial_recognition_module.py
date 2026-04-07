@@ -85,7 +85,7 @@ def find_closest_match(login_image_data, db_images_dict):
             best_distance = distance
             best_match_uid = uid
 
-    threshold = 0.5
+    threshold = 0.7
     if best_distance <= threshold:
         print(f"Match found: UID={best_match_uid}  distance={best_distance:.3f}")
         return best_match_uid
