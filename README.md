@@ -15,8 +15,8 @@
 <u>* NOTE:</u> Make sure that you create both `.env` files before running the codes.<br>
 
 1) <b>Terminal:</b> uv run Fetch_data/harvester.py (To fetch data from IIIT server to MySQL)
-2) <b>Terminal 2:</b> python3 -m http.server 8000
-3) <b>Terminal 1:</b> uv run app.py
+2) <b>Terminal 1:</b> python3 -m http.server 8000
+3) <b>Terminal 2:</b> uv run uvicorn app:app --host 127.0.0.1 --port 5001 --reloaduv run app.py
 4) <b>In Browser:</b> http://localhost:8000/Frontend/HTML/login.html
 </pre>
 
