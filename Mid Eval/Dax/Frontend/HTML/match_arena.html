@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>ARENA | Active Match</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
+    <link rel="stylesheet" href="../CSS/match_arena.css">
+    <script src="../JS/match_arena.js" defer></script>
+</head>
+<body>
+
+<div id="toast-container" class="toast-container hidden">
+    <span class="material-symbols-outlined">warning</span>
+    <span id="toast-message" class="font-header">ACCESS DENIED: NOT YOUR TURN</span>
+</div>
+
+<header class="top-nav">
+    <div class="nav-left">
+        <span class="brand-text font-header" style="display: block;">ARENA_OS</span>
+        <span class="lockdown-badge font-header">ACTIVE COMBAT LOCKDOWN</span>
+    </div>
+    <div class="nav-right">
+        <div class="quick-stats font-header">
+            <span id="hdr-elo" class="stat-elo">— ELO</span>
+        </div>
+        <div class="profile-avatar font-header">
+            <span id="hdr-initials">??</span>
+        </div>
+    </div>
+</header>
+
+<main class="arena-main">
+    <div class="arena-layout">
+        
+        <div class="panel-col">
+            <div class="player-card card-you">
+                <div class="player-header">
+                    <div class="avatar-wrapper">
+                        <div class="arena-avatar font-header js-my-initials">??</div>
+                        <span class="avatar-tag bg-primary">YOU</span>
+                    </div>
+                    <div class="player-info">
+                        <h3 class="font-header js-my-name">OPERATOR_01</h3>
+                        <p class="font-mono text-primary js-my-elo">0 <span class="elo-label">ELO</span></p>
+                    </div>
+                </div>
+                <div class="player-stats">
+                    <div class="stat-box">
+                        <span class="stat-lbl font-header">Win Rate</span>
+                        <span class="stat-val font-header" id="my-winrate">--%</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-lbl font-header">Streak</span>
+                        <span class="stat-val font-header text-secondary" id="my-streak">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tech-logs border-primary-dim">
+                <div class="log-header">
+                    <span class="font-header text-xs">TECHNICAL LOGS</span>
+                    <span class="material-symbols-outlined text-sm">monitoring</span>
+                </div>
+                <div class="log-body font-mono" id="combat-log-body">
+                </div>
+            </div>
+        </div>
+
+        <div class="board-col">
+            <div class="turn-indicator" id="turn-indicator">
+                <div class="turn-dot" id="turn-dot"></div>
+                <span class="font-header" id="turn-text">CONNECTING...</span>
+            </div>
+
+            <div class="game-board" id="game-board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+                
+                <div class="hud-top-left"></div>
+                <div class="hud-bottom-right"></div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-offer-draw" class="btn-secondary font-header">DRAW OFFER</button>
+                <button id="btn-resign" class="btn-danger font-header">RESIGN MATCH</button>
+            </div>
+        </div>
+
+        <div class="panel-col">
+            <div class="player-card card-opponent">
+                <div class="player-header header-reverse">
+                    <div class="player-info text-right">
+                        <h3 class="font-header" id="opp-name">AWAITING...</h3>
+                        <p class="font-mono text-muted"><span id="opp-elo">---</span> <span class="elo-label">ELO</span></p>
+                    </div>
+                    <div class="avatar-wrapper">
+                        <div class="arena-avatar font-header text-muted border-muted" id="opp-initials">??</div>
+                        <span class="avatar-tag bg-muted text-dark">OPPONENT</span>
+                    </div>
+                </div>
+                <div class="player-stats">
+                    <div class="stat-box">
+                        <span class="stat-lbl font-header">Win Rate</span>
+                        <span class="stat-val font-header" id="opp-winrate">--%</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-lbl font-header">Region</span>
+                        <span class="stat-val font-header" id="opp-region">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tech-logs border-muted">
+                <div class="log-header">
+                    <span class="font-header text-xs">LIVE MATCH ANALYTICS</span>
+                    <span class="material-symbols-outlined text-sm">analytics</span>
+                </div>
+                <div class="log-body">
+                    <div class="analytics-row mb-4">
+                        <div class="flex-between">
+                            <span class="font-header text-xs text-muted">Match Duration</span>
+                            <span class="font-mono text-primary text-sm font-bold" id="live-duration">00:00</span>
+                        </div>
+                    </div>
+                    <div class="analytics-row mt-4">
+                        <div class="flex-between">
+                            <span class="font-header text-xs text-muted">Moves Executed</span>
+                            <span class="font-mono text-xs font-bold" id="live-moves-text">0 / 9</span>
+                        </div>
+                        <div class="bar-bg"><div class="bar-fill bg-muted" id="live-moves-bar" style="width: 0%;"></div></div>
+                    </div>
+                </div>
+                <div class="latency-footer flex-between border-top-muted pt-3 mt-3">
+                    <span class="font-header text-[10px] text-muted">AVG RESPONSE TIME</span>
+                    <span class="font-mono text-[10px] text-secondary" id="live-response-time">0.0s</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<div id="match-result-overlay" class="result-overlay hidden theme-victory">
+    <div class="result-backdrop">
+        <div class="orb orb-top"></div>
+        <div class="orb orb-bottom"></div>
+        <div class="grid-overlay"></div>
+    </div>
+    <div class="result-content">
+        <div class="result-header">
+            <div class="status-pill font-mono">
+                <span class="pill-dot"></span>
+                <span id="result-system-text">System_Link_Stable</span>
+            </div>
+            <h1 id="result-title" class="font-header result-title-text">VICTORY</h1>
+            <p id="result-subtitle" class="font-mono result-subtitle-text">Opponent Neutralized // Arena Dominance Confirmed</p>
+        </div>
+        <div class="result-bento">
+            <div class="bento-card elo-card group">
+                <div class="bento-bg-icon"><span class="material-symbols-outlined">analytics</span></div>
+                <h3 class="font-mono bento-card-title">ELO_RECKONING</h3>
+                <div class="elo-display">
+                    <div class="elo-col">
+                        <span class="font-mono elo-sm">PREVIOUS</span>
+                        <span class="font-header elo-lg text-muted" id="res-prev-elo">--</span>
+                    </div>
+                    <span class="material-symbols-outlined elo-arrow">arrow_forward</span>
+                    <div class="elo-col">
+                        <span class="font-mono elo-sm theme-text">CURRENT</span>
+                        <span class="font-header elo-xl theme-text" id="res-curr-elo">--</span>
+                    </div>
+                </div>
+                <div class="elo-footer">
+                    <div id="res-elo-badge" class="elo-badge theme-bg theme-text font-mono">--</div>
+                    <p id="res-elo-desc" class="elo-desc font-body">Awaiting final server validation...</p>
+                </div>
+            </div>
+            <div class="quick-stats-col">
+                <div class="bento-card stat-card border-primary">
+                    <div>
+                        <p class="font-mono stat-sm">Total Moves</p>
+                        <p id="res-total-moves" class="font-header stat-lg">--</p>
+                    </div>
+                    <span class="material-symbols-outlined icon-muted">gesture</span>
+                </div>
+                <div class="bento-card stat-card border-theme">
+                    <div>
+                        <p class="font-mono stat-sm">Time Elapsed</p>
+                        <p id="res-time-elapsed" class="font-header stat-lg">--:--</p>
+                    </div>
+                    <span class="material-symbols-outlined icon-muted">timer</span>
+                </div>
+                <div class="bento-card stat-card border-danger">
+                    <div>
+                        <p class="font-mono stat-sm">Precision Rate</p>
+                        <p class="font-header stat-lg">98.4%</p>
+                    </div>
+                    <span class="material-symbols-outlined icon-muted">target</span>
+                </div>
+            </div>
+            <div class="bento-card logs-card">
+                <div class="logs-card-header">
+                    <span class="font-mono text-primary font-bold">Match_Execution_Logs</span>
+                    <span class="font-mono text-muted opacity-50">ID: AX-7712-B</span>
+                </div>
+                <div class="logs-card-body font-mono" id="res-final-logs"></div>
+            </div>
+        </div>
+        <div class="result-actions">
+            <button id="btn-rematch" class="btn-action btn-theme active-bounce">
+                <span class="font-header">REMATCH</span>
+                <span class="material-symbols-outlined">replay</span>
+            </button>
+            <button id="btn-return-lobby" class="btn-action btn-outline active-bounce">
+                <span class="font-header">RETURN TO LOBBY</span>
+                <span class="material-symbols-outlined">home</span>
+            </button>
+            <button id="btn-view-leaderboard" class="btn-action btn-ghost active-bounce">
+                <span class="font-header">VIEW LEADERBOARD</span>
+                <span class="material-symbols-outlined text-secondary">leaderboard</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
