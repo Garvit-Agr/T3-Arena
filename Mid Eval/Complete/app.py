@@ -201,6 +201,37 @@ def get_match_history(uid: str, db: Session = Depends(get_db)):
 
     return {"matches": results, "current_user_id": uid}
 
+@app.get('/api/match_init/{rid}/{uid}')
+def init_match(rid: str, uid: str, db: Session = Depends(get_db)):
+    # 1. Ensure the room exists in active memory
+    room = game_mgr.rooms.get(rid)
+    if not room:
+        return JSONResponse(status_code=404, content={"error": "Match room not found on server."})
+
+    # 2. Identify the opponent's UID
+    players = room["players"]
+    opp_uid = players[0] if players[1] == uid else players[1]
+
+    # 3. Fetch both users from the database
+    my_user = db.query(User).filter(User.uid == uid).first()
+    opp_user = db.query(User).filter(User.uid == opp_uid).first()
+
+    # Helper function to calculate win rate on the fly
+    def calc_winrate(user_id):
+        total = db.query(MatchHistory).filter(or_(MatchHistory.player1_uid == user_id, MatchHistory.player2_uid == user_id)).count()
+        wins = db.query(MatchHistory).filter(MatchHistory.winner_uid == user_id).count()
+        return round((wins / total) * 100, 1) if total > 0 else 0.0
+
+    # 4. Return the exact payload the frontend expects
+    return {
+        "opponent_name": opp_user.name if opp_user else f"OPERATOR {opp_uid}",
+        "opponent_elo": opp_user.elo_rating if opp_user else 1200,
+        "opponent_winrate": calc_winrate(opp_uid),
+        "opponent_region": "GLOBAL", # Hardcoded placeholder for UI
+        "my_winrate": calc_winrate(uid),
+        "my_streak": "-"             # Hardcoded placeholder for UI
+    }
+
 # --- WEBSOCKET MANAGERS ---
 
 class LobbyManager:
@@ -323,7 +354,26 @@ async def ws_lobby(ws: WebSocket, uid: str):
             if mtype == "challenge":
                 target = msg.get("target_uid")
                 pending_challenges[uid] = target
-                await lobby_mgr.send_to(target, {"type": "challenge_received", "from_uid": uid})
+                
+                # --- NEW STAT FETCHING LOGIC ---
+                with SessionLocal() as db:
+                    challenger = db.query(User).filter(User.uid == uid).first()
+                    c_name = challenger.name if challenger else f"OPERATOR {uid}"
+                    c_elo = challenger.elo_rating if challenger else 1200
+                    
+                    # Calculate win rate on the fly
+                    total = db.query(MatchHistory).filter(or_(MatchHistory.player1_uid == uid, MatchHistory.player2_uid == uid)).count()
+                    wins = db.query(MatchHistory).filter(MatchHistory.winner_uid == uid).count()
+                    c_winrate = round((wins / total) * 100, 1) if total > 0 else 0.0
+
+                # Add the stats to the broadcast payload
+                await lobby_mgr.send_to(target, {
+                    "type": "challenge_received", 
+                    "from_uid": uid,
+                    "challenger_name": c_name,
+                    "challenger_elo": c_elo,
+                    "challenger_winrate": c_winrate
+                })
 
             elif mtype == "challenge_response":
                 challenger, accepted = msg.get("from_uid"), msg.get("accepted")

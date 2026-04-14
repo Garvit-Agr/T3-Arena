@@ -64,13 +64,33 @@ document.addEventListener('DOMContentLoaded', () => {
     let timerInterval;
 
     // -------------------------------------------------------------
+    // MODAL LOGIC FOR RESIGNATION
+    // -------------------------------------------------------------
+    function showModal(id) {
+        document.getElementById('modal-overlay').classList.remove('hidden');
+        document.querySelectorAll('.custom-modal').forEach(m => m.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function hideModal() {
+        document.getElementById('modal-overlay').classList.add('hidden');
+    }
+
+    // -------------------------------------------------------------
     // BACKEND: MATCH INITIALIZATION 
     // -------------------------------------------------------------
     async function initializeMatch() {
         try {
             let response = await fetch(`http://localhost:5001/api/match_init/${roomId}/${loggedInUid}`);
+            
+            // SECURITY CHECK: Throw an error if the route 404s
+            if (!response.ok) throw new Error("Match initialization failed."); 
+            
             let data = await response.json();
             
+            // SECURITY CHECK: Throw an error if the server sent a handled exception
+            if (data.error) throw new Error(data.error); 
+
             // Populate real opponent data
             document.getElementById('opp-name').innerText = data.opponent_name;
             document.getElementById('opp-elo').innerText = data.opponent_elo;
@@ -82,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('my-streak').innerText = data.my_streak;
             
         } catch(e) {
-            console.warn("Backend not connected for init. Waiting for server...");
+            // By catching the error properly, the UI will retain the default "AWAITING..." text
+            console.warn("Backend not connected for init. Waiting for server...", e);
         }
     }
     initializeMatch();
@@ -301,11 +322,22 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem("arena_auth_elo", currentElo.toString());
     }
 
-    // Resign Match Logic
+    // Resign Match Custom Modal Logic
     document.getElementById('btn-resign').addEventListener('click', () => {
-        if (gameActive && confirm("Are you sure you want to resign? This will count as a loss.")) {
-            gameSocket.send(JSON.stringify({ type: "resign" }));
+        if (gameActive) {
+            showModal('modal-confirm');
         }
+    });
+
+    document.getElementById('btn-confirm-resign').addEventListener('click', () => {
+        if (gameActive) {
+            gameSocket.send(JSON.stringify({ type: "resign" }));
+            hideModal();
+        }
+    });
+
+    document.getElementById('btn-cancel-resign').addEventListener('click', () => {
+        hideModal();
     });
 
     // White Action Buttons Logic (Rematch functionality is completely removed)

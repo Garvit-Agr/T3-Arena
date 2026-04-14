@@ -216,23 +216,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let wins = 0;
         let losses = 0;
+        let draws = 0; // Track draws separately
         let netElo = 0;
         
         matches.forEach(match => {
             if (match.result === 'win') wins++;
-            else losses++;
+            else if (match.result === 'loss') losses++;
+            else draws++;
+            
             netElo += match.elo_change;
         });
 
-        const total = wins + losses;
+        const total = wins + losses + draws;
         const winrate = total > 0 ? ((wins / total) * 100).toFixed(1) : "0.0";
 
         statTotalMatches.innerText = total;
         statWinrate.innerText = winrate;
-        statWLRatio.innerText = `${wins} W / ${losses} L`;
+        statWLRatio.innerText = `${wins} W / ${losses} L / ${draws} D`; // Show Draws in UI
         statNetElo.innerText = netElo > 0 ? `+${netElo}` : netElo;
-        
-        // Removed the widgetCombatScore calculation since the widget was deleted
 
         if (total > 0) {
             const opponentCounts = {};
@@ -242,6 +243,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const nemesisName = Object.keys(opponentCounts).reduce((a, b) => opponentCounts[a] > opponentCounts[b] ? a : b);
             statNemesis.innerText = nemesisName.toUpperCase();
         }
+    }
+
+    function applyFiltersAndRender() {
+        currentFilteredData = globalMatchData.filter(match => {
+            return (currentFilter === 'all') || (match.result === currentFilter);
+        });
+
+        currentPage = 1; 
+        renderLogs();
     }
 
     function renderLogs() {
@@ -316,13 +326,29 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (data.type === "challenge_received") {
                 const overlay = document.getElementById('modal-overlay');
-                const c_name = `OPERATOR ${data.from_uid}`; 
+                
+                // --- NEW DATA MAPPING ---
+                // Parse the incoming data, falling back to ??? if undefined
+                const c_name = data.challenger_name ? data.challenger_name.toUpperCase() : `OPERATOR ${data.from_uid}`;
+                const c_elo = data.challenger_elo || "???";
+                const c_wr = data.challenger_winrate !== undefined ? data.challenger_winrate : "???";
                 
                 if (overlay) {
                     const titleEl = document.getElementById('inc-challenger-title');
                     if (titleEl) titleEl.textContent = `INCOMING CHALLENGE FROM ${c_name}`;
+                    
                     const nEl = document.getElementById('inc-name');
                     if (nEl) nEl.textContent = c_name;
+
+                    // Update the visual stats in the modal
+                    const initEl = document.getElementById('inc-initials');
+                    if (initEl) initEl.textContent = getInitials(c_name);
+                    
+                    const eloEl = document.getElementById('inc-elo');
+                    if (eloEl) eloEl.textContent = `${c_elo.toLocaleString()} ELO`;
+                    
+                    const wrEl = document.getElementById('inc-wr');
+                    if (wrEl) wrEl.textContent = `${c_wr}%`;
                     
                     window.showModal('modal-incoming');
 
@@ -336,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         window.hideModal();
                     };
                 } else {
-                    const accept = confirm(`SYSTEM PRIORITY: INCOMING CHALLENGE FROM OPERATOR ${data.from_uid}!\n\nAccept match?`);
+                    const accept = confirm(`SYSTEM PRIORITY: INCOMING CHALLENGE FROM ${c_name}!\n\nAccept match?`);
                     lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: accept }));
                     if (accept) { alert("MATCH ACCEPTED. STANDBY FOR ROUTING..."); }
                 }

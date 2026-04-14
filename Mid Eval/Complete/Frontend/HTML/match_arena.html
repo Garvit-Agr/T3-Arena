@@ -151,11 +151,7 @@
 </main>
 
 <div id="match-result-overlay" class="result-overlay hidden theme-victory">
-    <div class="result-backdrop">
-        <div class="orb orb-top"></div>
-        <div class="orb orb-bottom"></div>
-        <div class="grid-overlay"></div>
-    </div>
+    <div class="result-backdrop"></div>
     <div class="result-content">
         <div class="result-header">
             <div class="status-pill font-mono">
@@ -185,7 +181,7 @@
                     <p id="res-elo-desc" class="elo-desc font-body">Awaiting final server validation...</p>
                 </div>
             </div>
-            <div class="quick-stats-col">
+            <div class="quick-stats-col" style="display: grid; grid-template-rows: 1fr 1fr; gap: 1rem; height: 100%;">
                 <div class="bento-card stat-card border-primary">
                     <div>
                         <p class="font-mono stat-sm">Total Moves</p>
@@ -193,19 +189,13 @@
                     </div>
                     <span class="material-symbols-outlined icon-muted">gesture</span>
                 </div>
-                <div class="bento-card stat-card border-theme">
+                
+                <div class="bento-card stat-card border-theme" style="border-left: none !important;">
                     <div>
                         <p class="font-mono stat-sm">Time Elapsed</p>
                         <p id="res-time-elapsed" class="font-header stat-lg">--:--</p>
                     </div>
                     <span class="material-symbols-outlined icon-muted">timer</span>
-                </div>
-                <div class="bento-card stat-card border-danger">
-                    <div>
-                        <p class="font-mono stat-sm">Precision Rate</p>
-                        <p class="font-header stat-lg">98.4%</p>
-                    </div>
-                    <span class="material-symbols-outlined icon-muted">target</span>
                 </div>
             </div>
             <div class="bento-card logs-card">
@@ -223,6 +213,27 @@
             <button id="btn-view-leaderboard" class="btn-action btn-white-outline active-bounce">
                 <span class="font-header">VIEW LEADERBOARD</span>
                 <span class="material-symbols-outlined">leaderboard</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-confirm" class="custom-modal font-header hidden">
+        <div class="modal-sys-bar">
+            <div class="sys-dot" style="background-color: var(--color-danger);"></div>
+            <span style="color: var(--color-danger);">SYSTEM WARNING: CRITICAL ACTION</span>
+        </div>
+        <h2 class="modal-title" style="margin-top: 2rem; color: var(--color-danger);">CONFIRM RESIGNATION</h2>
+        <p class="modal-subtext" style="text-align: center; margin-bottom: 2rem; color: #a0a0a0; padding: 0 2rem;">
+            Are you sure you want to abandon the current operation? This will be recorded as a tactical defeat.
+        </p>
+        <div class="modal-actions">
+            <button id="btn-confirm-resign" class="btn-modal-decline" style="background-color: rgba(255, 84, 81, 0.1); border-color: rgba(255, 84, 81, 0.3); color: var(--color-danger);">
+                <span class="material-symbols-outlined">warning</span> ABANDON MATCH
+            </button>
+            <button id="btn-cancel-resign" class="btn-modal-accept" style="background-color: #353534; color: #fff;">
+                <span class="material-symbols-outlined">close</span> CANCEL
             </button>
         </div>
     </div>

@@ -143,10 +143,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function check_rank(elo) {
         if (elo >= 3000) return { name: "GRANDMASTER",  cls: "rank-gm" };
-        if (elo >= 2400) return { name: "PLATINUM", cls: "rank-platinum" };
-        if (elo >= 1800) return { name: "GOLD",       cls: "rank-gold" };
-        if (elo >= 1200) return { name: "SILVER",     cls: "rank-silver" };
-        return { name: "BRONZE", cls: "rank-bronze" };
+        if (elo >= 2800) return { name: "PLATINUM III", cls: "rank-platinum" };
+        if (elo >= 2600) return { name: "PLATINUM II", cls: "rank-platinum" };
+        if (elo >= 2400) return { name: "PLATINUM I", cls: "rank-platinum" };
+        if (elo >= 2200) return { name: "GOLD III",       cls: "rank-gold" };
+        if (elo >= 2000) return { name: "GOLD II",       cls: "rank-gold" };
+        if (elo >= 1800) return { name: "GOLD I",       cls: "rank-gold" };
+        if (elo >= 1600) return { name: "SILVER III",     cls: "rank-silver" };
+        if (elo >= 1400) return { name: "SILVER II",     cls: "rank-silver" };
+        if (elo >= 1200) return { name: "SILVER I",     cls: "rank-silver" };
+        if (elo >= 800) return { name: "BRONZE III",     cls: "rank-silver" };
+        if (elo >= 400) return { name: "BRONZE II",     cls: "rank-silver" };
+        return { name: "BRONZE I", cls: "rank-bronze" };
     }
 
     function prep_headers(currentElo = null) {
