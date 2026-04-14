@@ -68,7 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------
     async function initializeMatch() {
         try {
-            let response = await fetch('http://localhost:5001/api/match_init');
+            // FIX: Now passing the Room ID and User ID in the URL
+            let response = await fetch(`http://localhost:5001/api/match_init/${roomId}/${loggedInUid}`);
             let data = await response.json();
             
             // Populate real opponent data
@@ -155,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Board updates and turn toggling
         if (data.type === "board_state" || data.type === "board_update") {
             updateBoardFromBackend(data.board);
-            setTurnUI(data.current_turn === mySymbol);
+            setTurnUI(data.turn === mySymbol);
             
             if (data.last_move) {
                 const mover = data.last_move.uid === loggedInUid ? "YOU" : "OPPONENT";
@@ -173,6 +174,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.type === "game_over") {
             showEndScreen(data);
         }
+
+        // Add this anywhere inside your gameSocket.onmessage block to handle incoming draws:
+        if (data.type === "draw_offered") {
+            if (confirm("Opponent has offered a draw. Do you accept?")) {
+                gameSocket.send(JSON.stringify({ type: "accept_draw" }));
+            } else {
+                gameSocket.send(JSON.stringify({ type: "reject_draw" }));
+            }
+        }
+        if (data.type === "draw_rejected") {
+            addLog("SYSTEM: Opponent rejected the draw offer.");
+            showToast("DRAW REJECTED");
+        }
+
     };
 
     gameSocket.onclose = () => {
@@ -306,12 +321,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Buttons Send Backend Requests Instead of Faking It Now
-    document.getElementById('btn-resign').addEventListener('click', async () => {
-        try { await fetch('http://localhost:5001/api/resign', { method: 'POST' }); } catch(e) {}
+    document.getElementById('btn-resign').addEventListener('click', () => {
+        if (gameActive && confirm("Are you sure you want to resign? This will count as a loss.")) {
+            gameSocket.send(JSON.stringify({ type: "resign" }));
+        }
     });
 
-    document.getElementById('btn-offer-draw').addEventListener('click', async () => {
-        try { await fetch('http://localhost:5001/api/offer_draw', { method: 'POST' }); } catch(e) {}
+    document.getElementById('btn-offer-draw').addEventListener('click', () => {
+        if (gameActive) {
+            gameSocket.send(JSON.stringify({ type: "offer_draw" }));
+            addLog("SYSTEM: Draw offer transmitted.");
+        }
     });
 
     // Overlay Navigation Links

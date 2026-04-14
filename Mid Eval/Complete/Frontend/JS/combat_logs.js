@@ -238,18 +238,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const fragment = document.createDocumentFragment();
 
         pageData.forEach(match => {
-            const isWin = match.result === 'win';
             const logClone = templateLog.content.cloneNode(true);
             const entryWrapper = logClone.querySelector('.log-entry');
+            const resultTextEl = logClone.querySelector('.js-result-text');
+            const scoreChangeEl = logClone.querySelector('.js-score-change');
 
-            entryWrapper.classList.add(isWin ? 'is-win' : 'is-loss');
+            // --- FIXED DRAW LOGIC ---
+            if (match.result === 'win') {
+                entryWrapper.classList.add('is-win');
+                resultTextEl.innerText = 'VICTORY';
+                scoreChangeEl.innerText = `+${match.elo_change}`;
+            } else if (match.result === 'draw') {
+                entryWrapper.classList.add('is-draw');
+                resultTextEl.innerText = 'DRAW';
+                // For draws, show +/- normally (e.g., -1 or +0)
+                scoreChangeEl.innerText = match.elo_change > 0 ? `+${match.elo_change}` : match.elo_change;
+            } else {
+                entryWrapper.classList.add('is-loss');
+                resultTextEl.innerText = 'DEFEAT';
+                scoreChangeEl.innerText = match.elo_change;
+            }
 
             logClone.querySelector('.js-date').innerText = formatDate(match.timestamp);
-            logClone.querySelector('.js-result-text').innerText = isWin ? 'VICTORY' : 'DEFEAT';
             logClone.querySelector('.js-avatar').innerText = getInitials(match.opponent_name);
             logClone.querySelector('.js-name').innerText = match.opponent_name;
             logClone.querySelector('.js-rank').innerText = `${match.opponent_rank} RANKING`;
-            logClone.querySelector('.js-score-change').innerText = isWin ? `+${match.elo_change}` : match.elo_change;
 
             fragment.appendChild(logClone);
         });

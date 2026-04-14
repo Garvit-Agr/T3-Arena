@@ -336,7 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     titleEl.innerHTML = "CHALLENGE DECLINED";
                     msgEl.innerHTML = "THE TARGET OPERATOR REJECTED YOUR MATCH.";
                 }
-                setTimeout(() => window.hideModal(), 1500);
+                setTimeout(() => window.hideModal(), 4000);
             }
 
             if (data.type === "challenge_cancelled") {

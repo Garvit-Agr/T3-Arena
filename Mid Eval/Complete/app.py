@@ -1,50 +1,90 @@
 import os
 import base64
+import uuid
+import asyncio
+import urllib.parse
 import pymongo
-import mysql.connector
-from fastapi import FastAPI, Request, Response 
+import uvicorn
+from datetime import datetime
+
+from fastapi import FastAPI, Request, Depends, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
-import uvicorn
-import facial_recognition_module
-from dotenv import load_dotenv
-import uuid
-from fastapi import WebSocket, WebSocketDisconnect
-from engine import TicTacToeEngine
 from fastapi.staticfiles import StaticFiles
-import asyncio 
+from starlette.middleware.sessions import SessionMiddleware
+from dotenv import load_dotenv
+
+# SQLAlchemy components
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, or_
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+
+# Local project modules
+import facial_recognition_module
+from engine import TicTacToeEngine
 
 load_dotenv()
 
+# --- STANDALONE DATABASE CONFIGURATION ---
+# We use the same encoding logic to handle your @ password
+raw_password = os.getenv('DB_PASSWORD', '')
+encoded_password = urllib.parse.quote(raw_password)
+
+DB_URL = f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{encoded_password}@{os.getenv('DB_HOST', 'localhost')}/{os.getenv('DB_NAME', 'arena_db')}"
+
+# Configuration matching the project statement requirements
+engine = create_engine(DB_URL, pool_size=5, max_overflow=10)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# --- STANDALONE MODELS (Independent Copy) ---
+class User(Base):
+    __tablename__ = "users"
+    uid = Column(String(50), primary_key=True)
+    name = Column(String(100))
+    elo_rating = Column(Integer, default=1200)
+    is_online = Column(Boolean, default=False)
+    is_fighting = Column(Boolean, default=False)
+
+class MatchHistory(Base):
+    __tablename__ = "match_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player1_uid = Column(String(50), ForeignKey("users.uid"))
+    player2_uid = Column(String(50), ForeignKey("users.uid"))
+    winner_uid = Column(String(50), ForeignKey("users.uid"), nullable=True)
+    player1_elo_before = Column(Integer)
+    player2_elo_before = Column(Integer)
+    player1_elo_after = Column(Integer)
+    player2_elo_after = Column(Integer)
+    forfeit = Column(Boolean, default=False)
+    played_at = Column(DateTime, default=datetime.utcnow)
+
+# Safety check: SQLAlchemy creates only missing tables
+Base.metadata.create_all(bind=engine)
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# --- APP INITIALIZATION ---
 app = FastAPI()
-
 app.mount("/Frontend", StaticFiles(directory="Frontend"), name="frontend")
-
-app.add_middleware(SessionMiddleware, secret_key="some_random_secret_string")
-
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "super-secret-key"))
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",   
-        "http://127.0.0.1:8000",   
-        "http://localhost:5500",
-        "http://127.0.0.1:5500"
-    ], 
+    allow_origins=["*"], # Tighten this for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-def get_sql():
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME", "arena_db")
-    )
-
+# --- UTILITY FUNCTIONS ---
 def get_mg_imgs():
+    """Fetches profile images from MongoDB for facial recognition."""
     db_dt = {}
     try:
         cn = pymongo.MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
@@ -55,163 +95,113 @@ def get_mg_imgs():
                 db_dt[uid] = base64.b64decode(b64_img)
         cn.close()
     except Exception as e:
-        print(f"Mongo load err: {e}")
+        print(f"Mongo load error: {e}")
     return db_dt
 
-def get_usr_stats(incl_rnk=False):
-    db = get_sql()
-    cur = db.cursor(dictionary=True)
-    cur.execute("""
-        SELECT u.uid, u.name, u.elo_rating, u.is_online, u.is_fighting,
-               COUNT(CASE WHEN (m.player1_uid = u.uid OR m.player2_uid = u.uid) THEN 1 END) AS tot_gms,
-               COUNT(CASE WHEN m.winner_uid = u.uid THEN 1 END) AS wins
-        FROM users u
-        LEFT JOIN match_history m ON u.uid = m.player1_uid OR u.uid = m.player2_uid
-        GROUP BY u.uid, u.name, u.elo_rating, u.is_online, u.is_fighting
-        ORDER BY u.elo_rating DESC
-    """)
-    rows = cur.fetchall()
-    cur.close()
-    db.close()
-
-    plyrs = []
-    for i, p in enumerate(rows):
-        tot, wins = p['tot_gms'] or 0, p['wins'] or 0
-        win_r = round(wins / tot * 100, 1) if tot > 0 else 0.0
-        sts = "fighting" if p['is_fighting'] else "online" if p['is_online'] else "offline"
-
-        data = {"uid": str(p['uid']), "name": p['name'], "elo_rating": p['elo_rating'], "winrate": win_r, "status": sts}
+def get_player_data(db: Session, include_rank: bool = False):
+    """Refactored logic to fetch leaderboard data via SQLAlchemy."""
+    users = db.query(User).order_by(User.elo_rating.desc()).all()
+    results = []
+    
+    for i, u in enumerate(users):
+        # Query match counts using the relationship logic
+        total = db.query(MatchHistory).filter(or_(MatchHistory.player1_uid == u.uid, MatchHistory.player2_uid == u.uid)).count()
+        wins = db.query(MatchHistory).filter(MatchHistory.winner_uid == u.uid).count()
         
-        if incl_rnk:
-            data['rank'] = i + 1
-        plyrs.append(data)
-    return plyrs
+        win_rate = round(wins / total * 100, 1) if total > 0 else 0.0
+        status = "fighting" if u.is_fighting else "online" if u.is_online else "offline"
 
-@app.get('/')
-def home():
-    return "Arena API running."
+        entry = {"uid": u.uid, "name": u.name, "elo_rating": u.elo_rating, "winrate": win_rate, "status": status}
+        if include_rank:
+            entry['rank'] = i + 1
+        results.append(entry)
+    return results
+
+# --- API ROUTES ---
 
 @app.post('/login')
-async def handle_login(req: Request):
-    try:
-        inc_data = await req.json()
-    except Exception:
-        inc_data = {}
-        
-    b64_img = inc_data.get('image')
+async def handle_login(req: Request, db: Session = Depends(get_db)):
+    data = await req.json()
+    b64_img = data.get('image')
     if not b64_img:
-        return JSONResponse(status_code=400, content={"success": False, "message": "No image provided"})
+        return JSONResponse(status_code=400, content={"success": False, "message": "No image"})
 
-    try:
-        cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
-        
-        mg_db = await asyncio.to_thread(get_mg_imgs)
-        
-        if not mg_db:
-            return JSONResponse(status_code=500, content={"success": False, "message": "No images in database"})
+    cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
+    mg_db = await asyncio.to_thread(get_mg_imgs)
+    m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, mg_db)
+    
+    if not m_uid:
+        return JSONResponse(status_code=401, content={"success": False, "message": "Face not recognized"})
 
-        m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, mg_db)
-        
-        if not m_uid:
-            return JSONResponse(status_code=401, content={"success": False, "message": "Face not recognised"})
+    user = db.query(User).filter(User.uid == m_uid).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"success": False, "message": "User not in MySQL"})
 
-        sql_db = get_sql()
-        cur = sql_db.cursor(dictionary=True)
-        cur.execute("SELECT uid, name, elo_rating FROM users WHERE uid = %s", (m_uid,))
-        usr = cur.fetchone()
+    user.is_online = True
+    db.commit()
 
-        if not usr:
-            cur.close()
-            sql_db.close()
-            return JSONResponse(status_code=401, content={"success": False, "message": "User not found"})
-
-        cur.execute("UPDATE users SET is_online = TRUE WHERE uid = %s", (m_uid,))
-        sql_db.commit()
-        cur.close()
-        sql_db.close()
-
-        req.session['uid'], req.session['name'] = str(usr['uid']), usr['name']
-        
-        await lobby_mgr.broadcast({"type": "presence", "uid": str(usr['uid']), "status": "online"})
-        
-        return {"success": True, "uid": str(usr['uid']), "name": usr['name'], "elo_rating": usr['elo_rating']}
-
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
+    req.session['uid'], req.session['name'] = user.uid, user.name
+    await lobby_mgr.broadcast({"type": "presence", "uid": user.uid, "status": "online"})
+    
+    return {"success": True, "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
 
 @app.post('/logout')
-async def logout(req: Request):
-    try:
-        inc_data = await req.json()
-    except Exception:
-        inc_data = {}
-        
-    fn_uid = inc_data.get('uid')
-    ck_uid = req.session.get('uid')
-    tgt_uid = fn_uid or ck_uid
+async def logout(req: Request, db: Session = Depends(get_db)):
+    data = await req.json()
+    uid = data.get('uid') or req.session.get('uid')
     
-    if tgt_uid:
-        try:
-            db = get_sql()
-            cur = db.cursor()
-            cur.execute("UPDATE users SET is_online = FALSE WHERE uid = %s", (tgt_uid,))
+    if uid:
+        user = db.query(User).filter(User.uid == uid).first()
+        if user:
+            user.is_online = False
             db.commit()
-            cur.close()
-            db.close()
-            await lobby_mgr.broadcast({"type": "presence", "uid": str(tgt_uid), "status": "offline"})
-        except Exception as e:
-            print(f"[MySQL] Logout err: {e}")
+            await lobby_mgr.broadcast({"type": "presence", "uid": uid, "status": "offline"})
             
-    if str(tgt_uid) == str(ck_uid):
+    if str(uid) == str(req.session.get('uid')):
         req.session.clear()
-
     return {"success": True}
 
 @app.get('/api/players')
-def get_plyrs(response: Response):
-    response.headers["Cache-Control"] = "no-store, max-age=0"
-    try:
-        return {"players": get_usr_stats()}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"players": [], "error": str(e)})
+def get_players(db: Session = Depends(get_db)):
+    return {"players": get_player_data(db)}
 
 @app.get('/api/leaderboard')
-def get_ldrbd(response: Response):
-    response.headers["Cache-Control"] = "no-store, max-age=0"
-    try:
-        return {"players": get_usr_stats(incl_rnk=True)}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"players": [], "error": str(e)})
+def get_leaderboard(db: Session = Depends(get_db)):
+    return {"players": get_player_data(db, include_rank=True)}
 
-@app.get("/api/match-history/{target_uid}")
-async def get_match_history(target_uid: str, request: Request):
-    try:
-        conn = get_sql()
-        cursor = conn.cursor(dictionary=True)
-        
-        query = """
-            SELECT m.*, u1.name as p1_name, u2.name as p2_name 
-            FROM match_history m
-            LEFT JOIN users u1 ON m.player1_uid = u1.uid
-            LEFT JOIN users u2 ON m.player2_uid = u2.uid
-            WHERE m.player1_uid = %s OR m.player2_uid = %s
-            ORDER BY m.played_at DESC
-        """
-        cursor.execute(query, (target_uid, target_uid))
-        history_list = cursor.fetchall()
-        
-        for match in history_list:
-            if 'played_at' in match and match['played_at']:
-                match['played_at'] = match['played_at'].isoformat()
-        
-        cursor.close()
-        conn.close()
-        
-        return {"matches": history_list, "current_user_id": target_uid}
-        
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
-    
+@app.get('/api/match-history/{uid}')
+def get_match_history(uid: str, db: Session = Depends(get_db)):
+    # 1. Fetch matches where the user was either Player 1 or Player 2
+    # Ordered by most recent first
+    matches = db.query(MatchHistory).filter(
+        or_(MatchHistory.player1_uid == uid, MatchHistory.player2_uid == uid)
+    ).order_by(MatchHistory.played_at.desc()).all()
+
+    results = []
+    for m in matches:
+        # 2. Identify the opponent to fetch their name for the UI
+        opp_uid = m.player2_uid if m.player1_uid == uid else m.player1_uid
+        opp_user = db.query(User).filter(User.uid == opp_uid).first()
+        opp_name = opp_user.name if opp_user else "Unknown Operator"
+
+        # 3. Format payload to match what combat_logs.js expectations
+        results.append({
+            "played_at": m.played_at.isoformat(),
+            "winner_uid": m.winner_uid,
+            "player1_uid": m.player1_uid,
+            "player2_uid": m.player2_uid,
+            "p1_name": "YOU" if m.player1_uid == uid else opp_name,
+            "p2_name": "YOU" if m.player2_uid == uid else opp_name,
+            "player1_elo_before": m.player1_elo_before,
+            "player1_elo_after": m.player1_elo_after,
+            "player2_elo_before": m.player2_elo_before,
+            "player2_elo_after": m.player2_elo_after,
+            "forfeit": m.forfeit
+        })
+
+    return {"matches": results, "current_user_id": uid}
+
+# --- WEBSOCKET MANAGERS ---
 
 class LobbyManager:
     def __init__(self):
@@ -221,41 +211,29 @@ class LobbyManager:
         await ws.accept()
         self.connections[uid] = ws
 
-    def disconnect(self, uid: str):
-        self.connections.pop(uid, None)
-
     async def handle_disconnect(self, uid: str):
         self.connections.pop(uid, None)
         await asyncio.sleep(2.0)
-        
         if uid not in self.connections:
-            try:
-                db  = get_sql()
-                cur = db.cursor()
-                cur.execute("UPDATE users SET is_online = FALSE WHERE uid = %s", (uid,))
-                db.commit()
-                cur.close()
-                db.close()
-            except Exception:
-                pass
+            with SessionLocal() as db:
+                user = db.query(User).filter(User.uid == uid).first()
+                if user:
+                    user.is_online = False
+                    db.commit()
             await self.broadcast({"type": "presence", "uid": uid, "status": "offline"})
 
     async def broadcast(self, message: dict):
-        dead = []
-        for uid, ws in self.connections.items():
+        for ws in list(self.connections.values()):
             try:
                 await ws.send_json(message)
-            except Exception:
-                dead.append(uid)
-        for uid in dead:
-            self.connections.pop(uid, None)
+            except:
+                pass
 
     async def send_to(self, uid: str, message: dict):
-        ws = self.connections.get(uid)
-        if ws:
+        if uid in self.connections:
             try:
-                await ws.send_json(message)
-            except Exception:
+                await self.connections[uid].send_json(message)
+            except:
                 self.connections.pop(uid, None)
 
 class GameRoomManager:
@@ -263,246 +241,175 @@ class GameRoomManager:
         self.rooms: dict[str, dict] = {}
 
     def create_room(self, uid_x: str, uid_o: str, r_x: int, r_o: int) -> str:
-        room_id = str(uuid.uuid4())
-        self.rooms[room_id] = {
-            "engine":      TicTacToeEngine(uid_x, uid_o),
+        rid = str(uuid.uuid4())
+        self.rooms[rid] = {
+            "engine": TicTacToeEngine(uid_x, uid_o),
             "connections": {},
-            "ratings":     {uid_x: r_x, uid_o: r_o},
-            "players":     [uid_x, uid_o]
+            "ratings": {uid_x: r_x, uid_o: r_o},
+            "players": [uid_x, uid_o]
         }
-        return room_id
+        return rid
 
-    async def connect(self, room_id: str, uid: str, ws: WebSocket) -> bool:
+    async def connect(self, rid: str, uid: str, ws: WebSocket):
         await ws.accept()
-        if room_id not in self.rooms:
-            return False
-        self.rooms[room_id]["connections"][uid] = ws
-        return True
+        if rid in self.rooms:
+            self.rooms[rid]["connections"][uid] = ws
+            return True
+        return False
 
-    def disconnect(self, room_id: str, uid: str):
-        if room_id in self.rooms:
-            self.rooms[room_id]["connections"].pop(uid, None)
-
-    async def broadcast_room(self, room_id: str, message: dict):
-        if room_id not in self.rooms:
-            return
-        dead = []
-        for uid, ws in self.rooms[room_id]["connections"].items():
-            try:
-                await ws.send_json(message)
-            except Exception:
-                dead.append(uid)
-        for uid in dead:
-            self.rooms[room_id]["connections"].pop(uid, None)
-
-    def close_room(self, room_id: str):
-        self.rooms.pop(room_id, None)
+    async def broadcast_room(self, rid: str, msg: dict):
+        if rid in self.rooms:
+            for ws in list(self.rooms[rid]["connections"].values()):
+                try:
+                    await ws.send_json(msg)
+                except:
+                    pass
 
 lobby_mgr = LobbyManager()
-game_mgr  = GameRoomManager()
-pending_challenges: dict[str, str] = {}
+game_mgr = GameRoomManager()
+pending_challenges = {}
 
-def get_elo(uid: str) -> int:
-    try:
-        db  = get_sql()
-        cur = db.cursor(dictionary=True)
-        cur.execute("SELECT elo_rating FROM users WHERE uid = %s", (uid,))
-        row = cur.fetchone()
-        cur.close(); db.close()
-        return row["elo_rating"] if row else 1200
-    except Exception:
-        return 1200
-
-def save_match(uid_x: str, uid_o: str, r_x: int, r_o: int,
-               r_x_new: int, r_o_new: int,
-               winner_uid: str | None, forfeit: bool):
-    try:
-        db  = get_sql()
-        cur = db.cursor()
-        cur.execute("UPDATE users SET elo_rating = %s WHERE uid = %s", (r_x_new, uid_x))
-        cur.execute("UPDATE users SET elo_rating = %s WHERE uid = %s", (r_o_new, uid_o))
-        cur.execute("UPDATE users SET is_fighting = FALSE, is_online = TRUE WHERE uid IN (%s, %s)", (uid_x, uid_o))
-        cur.execute("""
-            INSERT INTO match_history
-                (player1_uid, player2_uid, winner_uid,
-                 player1_elo_before, player2_elo_before,
-                 player1_elo_after,  player2_elo_after,
-                 forfeit)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (uid_x, uid_o, winner_uid, r_x, r_o, r_x_new, r_o_new, forfeit))
+async def finalize_match(rid: str, forfeit_winner: str = None):
+    room = game_mgr.rooms.get(rid)
+    if not room: return
+    
+    eng, uid_x, uid_o = room["engine"], room["players"][0], room["players"][1]
+    
+    with SessionLocal() as db:
+        ux, uo = db.query(User).filter(User.uid == uid_x).first(), db.query(User).filter(User.uid == uid_o).first()
+        
+        if forfeit_winner:
+            eng.winner = "X" if uid_x == forfeit_winner else "O"
+            
+        rx_new, ro_new = eng.get_match_results(ux.elo_rating, uo.elo_rating)
+        win_uid = eng.players[eng.winner] if eng.winner in ["X", "O"] else None
+        
+        # Persistence
+        match = MatchHistory(
+            player1_uid=uid_x, player2_uid=uid_o, winner_uid=win_uid,
+            player1_elo_before=ux.elo_rating, player2_elo_before=uo.elo_rating,
+            player1_elo_after=rx_new, player2_elo_after=ro_new,
+            forfeit=(forfeit_winner is not None)
+        )
+        ux.elo_rating, uo.elo_rating = rx_new, ro_new
+        ux.is_fighting = uo.is_fighting = False
+        db.add(match)
         db.commit()
-        cur.close(); db.close()
-    except Exception:
-        pass
 
-async def finalize_match(room_id: str, forfeit_winner_uid: str | None = None):
-    if room_id not in game_mgr.rooms:
-        return
+        await game_mgr.broadcast_room(rid, {
+            "type": "game_over",
+            "winner": eng.winner,
+            "new_ratings": {uid_x: rx_new, uid_o: ro_new}
+        })
+    game_mgr.rooms.pop(rid, None)
 
-    room    = game_mgr.rooms[room_id]
-    engine  = room["engine"]
-    ratings = room["ratings"]
-    uid_x   = engine.players["X"]
-    uid_o   = engine.players["O"]
-    r_x     = ratings[uid_x]
-    r_o     = ratings[uid_o]
-
-    is_forfeit = forfeit_winner_uid is not None
-    if is_forfeit:
-        engine.winner = "X" if uid_x == forfeit_winner_uid else "O"
-
-    r_x_new, r_o_new = engine.get_match_results(r_x, r_o)
-
-    winner_uid = None
-    if engine.winner and engine.winner != "DRAW":
-        winner_uid = engine.players[engine.winner]
-
-    save_match(uid_x, uid_o, r_x, r_o, r_x_new, r_o_new, winner_uid, is_forfeit)
-
-    await game_mgr.broadcast_room(room_id, {
-        "type":        "game_over",
-        "winner":      engine.winner,        
-        "winner_uid":  winner_uid,
-        "new_ratings": {uid_x: r_x_new, uid_o: r_o_new},
-        "forfeit":     is_forfeit
-    })
-
-    game_mgr.close_room(room_id)
+# --- WEBSOCKET ENDPOINTS ---
 
 @app.websocket("/ws/lobby/{uid}")
 async def ws_lobby(ws: WebSocket, uid: str):
     await lobby_mgr.connect(uid, ws)
-    try:
-        db  = get_sql()
-        cur = db.cursor()
-        cur.execute("UPDATE users SET is_online = TRUE WHERE uid = %s", (uid,))
-        db.commit(); cur.close(); db.close()
-    except Exception:
-        pass
-
+    with SessionLocal() as db:
+        u = db.query(User).filter(User.uid == uid).first()
+        if u:
+            u.is_online = True
+            db.commit()
     await lobby_mgr.broadcast({"type": "presence", "uid": uid, "status": "online"})
 
     try:
         while True:
-            raw      = await ws.receive_json()
-            msg_type = raw.get("type")
+            msg = await ws.receive_json()
+            mtype = msg.get("type")
 
-            if msg_type == "challenge":
-                target = str(raw.get("target_uid"))
-                if not target or target == uid:
-                    continue
+            if mtype == "challenge":
+                target = msg.get("target_uid")
                 pending_challenges[uid] = target
-                await lobby_mgr.send_to(target, {
-                    "type":     "challenge_received",
-                    "from_uid": uid
-                })
+                await lobby_mgr.send_to(target, {"type": "challenge_received", "from_uid": uid})
 
-            elif msg_type == "cancel_challenge":
-                target = str(raw.get("target_uid"))
+            elif mtype == "challenge_response":
+                challenger, accepted = msg.get("from_uid"), msg.get("accepted")
+                if accepted and pending_challenges.get(challenger) == uid:
+                    with SessionLocal() as db:
+                        u1, u2 = db.query(User).filter(User.uid == challenger).first(), db.query(User).filter(User.uid == uid).first()
+                        u1.is_fighting = u2.is_fighting = True
+                        db.commit()
+                        rid = game_mgr.create_room(challenger, uid, u1.elo_rating, u2.elo_rating)
+                    
+                    await lobby_mgr.send_to(challenger, {"type": "match_start", "room_id": rid, "symbol": "X", "opponent_uid": uid})
+                    await lobby_mgr.send_to(uid, {"type": "match_start", "room_id": rid, "symbol": "O", "opponent_uid": challenger})
+                elif not accepted:
+                    # FIX: If declined, explicitly notify the challenger so their UI can reset
+                    await lobby_mgr.send_to(challenger, {"type": "challenge_declined"})
+                    
+                pending_challenges.pop(challenger, None)
+                
+            # FIX: Handle the sender hitting "Dismiss" before the target answers
+            elif mtype == "cancel_challenge":
+                target = msg.get("target_uid")
                 if pending_challenges.get(uid) == target:
                     pending_challenges.pop(uid, None)
-                    await lobby_mgr.send_to(target, {
-                        "type":     "challenge_cancelled",
-                        "from_uid": uid
-                    })
+                    # Notify the target to close their incoming challenge modal
+                    await lobby_mgr.send_to(target, {"type": "challenge_cancelled"})
+    except:
+        await lobby_mgr.handle_disconnect(uid)
 
-            elif msg_type == "challenge_response":
-                challenger = str(raw.get("from_uid"))
-                accepted   = raw.get("accepted", False)
+@app.websocket("/ws/game/{rid}/{uid}")
+async def ws_game(ws: WebSocket, rid: str, uid: str):
+    if not await game_mgr.connect(rid, uid, ws):
+        return await ws.close(code=4004)
 
-                if not accepted:
-                    pending_challenges.pop(challenger, None)
-                    await lobby_mgr.send_to(challenger, {
-                        "type":   "challenge_declined",
-                        "by_uid": uid
-                    })
-                    continue
-
-                if pending_challenges.get(challenger) != uid:
-                    continue
-
-                pending_challenges.pop(challenger, None)
-
-                r_challenger = get_elo(challenger)
-                r_acceptor   = get_elo(uid)
-
-                room_id = game_mgr.create_room(challenger, uid, r_challenger, r_acceptor)
-
-                try:
-                    db  = get_sql()
-                    cur = db.cursor()
-                    cur.execute(
-                        "UPDATE users SET is_fighting = TRUE WHERE uid IN (%s, %s)",
-                        (challenger, uid)
-                    )
-                    db.commit(); cur.close(); db.close()
-                except Exception:
-                    pass
-
-                await lobby_mgr.send_to(challenger, {
-                    "type":         "match_start",
-                    "room_id":      room_id,
-                    "symbol":       "X",
-                    "opponent_uid": uid
-                })
-                await lobby_mgr.send_to(uid, {
-                    "type":         "match_start",
-                    "room_id":      room_id,
-                    "symbol":       "O",
-                    "opponent_uid": challenger
-                })
-
-    except WebSocketDisconnect:
-        asyncio.create_task(lobby_mgr.handle_disconnect(uid))
-
-@app.websocket("/ws/game/{room_id}/{uid}")
-async def ws_game(ws: WebSocket, room_id: str, uid: str):
-    ok = await game_mgr.connect(room_id, uid, ws)
-    if not ok:
-        await ws.close(code=4004)
-        return
-
-    room   = game_mgr.rooms[room_id]
-    engine = room["engine"]
+    room = game_mgr.rooms[rid]
+    eng = room["engine"]
 
     await ws.send_json({
-        "type":         "board_state",
-        "board":        engine.board,
-        "current_turn": engine.current_turn,
-        "players":      engine.players
+        "type": "board_state", 
+        "board": eng.board, 
+        "turn": eng.current_turn,
+        "current_turn": eng.current_turn 
     })
 
     try:
         while True:
-            raw = await ws.receive_json()
-
-            if raw.get("type") == "move":
-                row = raw.get("row")
-                col = raw.get("col")
-
-                success, msg = engine.make_move(uid, row, col)
-
-                if not success:
-                    await ws.send_json({"type": "move_rejected", "reason": msg})
-                    continue
-
-                await game_mgr.broadcast_room(room_id, {
-                    "type":         "board_update",
-                    "board":        engine.board,
-                    "current_turn": engine.current_turn,
-                    "last_move":    {"uid": uid, "row": row, "col": col}
-                })
-
-                if engine.winner:
-                    await finalize_match(room_id)
-
-    except WebSocketDisconnect:
-        game_mgr.disconnect(room_id, uid)
-
-        if room_id in game_mgr.rooms and not game_mgr.rooms[room_id]["engine"].winner:
-            remaining = [p for p in game_mgr.rooms[room_id]["players"] if p != uid]
-            if remaining:
-                await finalize_match(room_id, forfeit_winner_uid=remaining[0])
+            data = await ws.receive_json()
+            mtype = data.get("type")
+            
+            if mtype == "move":
+                success, _ = eng.make_move(uid, data.get("row"), data.get("col"))
+                if success:
+                    await game_mgr.broadcast_room(rid, {
+                        "type": "board_update", 
+                        "board": eng.board, 
+                        "turn": eng.current_turn,
+                        "current_turn": eng.current_turn
+                    })
+                    if eng.winner:
+                        await finalize_match(rid)
+            
+            elif mtype == "resign":
+                other_uid = [p for p in room["players"] if p != uid][0]
+                await finalize_match(rid, forfeit_winner=other_uid)
+                
+            elif mtype == "offer_draw":
+                other_uid = [p for p in room["players"] if p != uid][0]
+                if other_uid in room["connections"]:
+                    await room["connections"][other_uid].send_json({"type": "draw_offered"})
+                    
+            elif mtype == "accept_draw":
+                eng.winner = "DRAW"
+                await finalize_match(rid)
+                
+            elif mtype == "reject_draw":
+                other_uid = [p for p in room["players"] if p != uid][0]
+                if other_uid in room["connections"]:
+                    await room["connections"][other_uid].send_json({"type": "draw_rejected"})
+                    
+    except Exception as e:
+        print(f"WebSocket Game Error: {e}") # This will now print the exact crash reason!
+        if rid in game_mgr.rooms and not eng.winner:
+            other = [p for p in room["players"] if p != uid][0]
+            try:
+                await finalize_match(rid, forfeit_winner=other)
+            except Exception as inner_e:
+                print(f"Finalize match crashed on disconnect: {inner_e}")
 
 if __name__ == '__main__':
     uvicorn.run("app:app", host="127.0.0.1", port=5001, reload=True)

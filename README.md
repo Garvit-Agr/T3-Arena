@@ -24,28 +24,24 @@
 
 ### UV Add Commands:
 <pre>
-1) uv add mysql-connector-python pymongo python-dotenv
+1) uv add mysql-connector-python pymongo python-dotenv sqlalchemy websockets
 2) uv add fastapi uvicorn face-recognition itsdangerous numpy pillow "setuptools<70" requests
 </pre>
 ---
 
-### .env configurations (near `harvester.py`):
+### .env configurations (near `app.py` and near `harvester.py`):
 <pre>
+# MySQL Configuration
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=YourMysqlPasswordHere
 DB_NAME=arena_db
-</pre>
 
----
-
-### .env configurations (near `app.py`):
-<pre>
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=YourMysqlPasswordHere
-DB_NAME=arena_db
+# MongoDB Configuration
 MONGO_URI=mongodb://localhost:27017
+
+# FastAPI Security
+SESSION_SECRET=a_very_long_random_string_here_for_security
 </pre>
 
 ---
