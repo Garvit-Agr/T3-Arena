@@ -18,11 +18,6 @@
             <span class="material-symbols-outlined">menu</span>
         </button>
         <span class="brand-text font-header">ARENA_OS</span>
-        
-        <div class="search-box">
-            <span class="material-symbols-outlined">search</span>
-            <input id="log-search" class="search-input font-header" placeholder="SEARCH_OPPONENT" type="text"/>
-        </div>
     </div>
 
     <div class="nav-right">
@@ -83,6 +78,7 @@
                     <span class="stat-value font-header" id="stat-total-matches">0</span>
                     <span class="stat-unit font-header text-primary">OPs</span>
                 </div>
+                <span class="stat-subtext font-header text-primary">LIFETIME RECORD</span>
             </div>
             
             <div class="stat-card border-secondary">
@@ -124,6 +120,7 @@
                         <button id="btn-filter-all" class="filter-btn active font-header">ALL</button>
                         <button id="btn-filter-wins" class="filter-btn font-header">VICTORIES</button>
                         <button id="btn-filter-losses" class="filter-btn font-header">DEFEATS</button>
+                        <button id="btn-filter-draws" class="filter-btn font-header">DRAWS</button>
                     </div>
                 </div>
 
@@ -145,18 +142,6 @@
                 </div>
 
             </section>
-
-            <aside class="widgets-section">
-                <div class="widget-card">
-                    <span class="material-symbols-outlined widget-bg-icon">analytics</span>
-                    <h3 class="widget-title font-header text-primary">TACTICAL EFFICIENCY</h3>
-                    
-                    <div class="widget-stat-row">
-                        <span class="widget-stat-label font-header">OVERALL COMBAT SCORE</span>
-                        <span class="widget-stat-number font-header text-secondary" id="widget-combat-score">0</span>
-                    </div>
-                </div>
-            </aside>
 
         </div>
     </div>
@@ -196,7 +181,6 @@
             <div class="card-avatar font-header js-avatar">??</div>
             <div class="opponent-details">
                 <span class="card-name font-header js-name">OPPONENT_NAME</span>
-                <span class="card-rank font-header js-rank">RANK</span>
             </div>
         </div>
 
@@ -206,6 +190,57 @@
         </div>
     </div>
 </template>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-incoming" class="custom-modal font-header hidden">
+        <div class="modal-sys-bar">
+            <div class="sys-dot"></div>
+            <span>SYSTEM PRIORITY: INCOMING CHALLENGE</span>
+            <span class="sys-right">PROTOCOL: MATCH_PENDING</span>
+        </div>
+        <h2 id="inc-challenger-title" class="modal-title">INCOMING CHALLENGE FROM PLAYER_7</h2>
+        <div class="modal-stats-grid">
+            <div class="stats-card-left">
+                <div class="modal-avatar"><span id="inc-initials">??</span></div>
+                <div class="modal-id-info">
+                    <span class="sub-lbl">IDENTITY</span>
+                    <span id="inc-name" class="main-val">PLAYER_7</span>
+                    <div class="ready-badge"><span class="static-dot"></span> READY</div>
+                </div>
+            </div>
+            <div class="stats-col-right">
+                <div class="stat-box">
+                    <span class="sub-lbl">RATING</span>
+                    <span id="inc-elo" class="main-val primary-text">??? ELO</span>
+                </div>
+                <div class="stat-box">
+                    <span class="sub-lbl">WIN RATE</span>
+                    <span id="inc-wr" class="main-val sec-text">???%</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button id="btn-accept-challenge" class="btn-modal-accept">
+                <span class="material-symbols-outlined">check_circle</span> ACCEPT
+            </button>
+            <button id="btn-decline-challenge" class="btn-modal-decline">
+                <span class="material-symbols-outlined">cancel</span> DECLINE
+            </button>
+        </div>
+    </div>
+    
+    <div id="modal-alert" class="custom-modal font-header hidden">
+        <div class="modal-sys-bar">
+            <div class="sys-dot"></div>
+            <span>SYSTEM NOTIFICATION</span>
+        </div>
+        <h2 id="alert-title" class="modal-title" style="margin-top: 2rem;">UPDATE</h2>
+        <p id="alert-message" class="modal-subtext" style="text-align: center; margin-bottom: 2rem; color: #a0a0a0;"></p>
+        <div class="modal-actions" style="justify-content: center;">
+            <button onclick="hideModal()" class="btn-modal-decline" style="width: 50%;">DISMISS</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

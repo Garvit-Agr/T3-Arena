@@ -142,11 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function check_rank(elo) {
-        if (elo >= 2800) return { name: "GRANDMASTER",  cls: "rank-gm" };
-        if (elo >= 2000) return { name: "PLATINUM I", cls: "rank-platinum" };
-        if (elo >= 1500) return { name: "GOLD I",       cls: "rank-gold" };
-        if (elo >= 1200) return { name: "SILVER I",     cls: "rank-silver" };
-        return { name: "BRONZE I", cls: "rank-bronze" };
+        if (elo >= 3000) return { name: "GRANDMASTER",  cls: "rank-gm" };
+        if (elo >= 2400) return { name: "PLATINUM", cls: "rank-platinum" };
+        if (elo >= 1800) return { name: "GOLD",       cls: "rank-gold" };
+        if (elo >= 1200) return { name: "SILVER",     cls: "rank-silver" };
+        return { name: "BRONZE", cls: "rank-bronze" };
     }
 
     function prep_headers(currentElo = null) {

@@ -388,19 +388,6 @@ async def ws_game(ws: WebSocket, rid: str, uid: str):
                 other_uid = [p for p in room["players"] if p != uid][0]
                 await finalize_match(rid, forfeit_winner=other_uid)
                 
-            elif mtype == "offer_draw":
-                other_uid = [p for p in room["players"] if p != uid][0]
-                if other_uid in room["connections"]:
-                    await room["connections"][other_uid].send_json({"type": "draw_offered"})
-                    
-            elif mtype == "accept_draw":
-                eng.winner = "DRAW"
-                await finalize_match(rid)
-                
-            elif mtype == "reject_draw":
-                other_uid = [p for p in room["players"] if p != uid][0]
-                if other_uid in room["connections"]:
-                    await room["connections"][other_uid].send_json({"type": "draw_rejected"})
                     
     except Exception as e:
         print(f"WebSocket Game Error: {e}") # This will now print the exact crash reason!

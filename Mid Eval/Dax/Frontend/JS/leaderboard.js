@@ -40,21 +40,15 @@ window.showCustomAlert = function(title, message, isChallengeWaiting = false, ta
 };
 
 function check_rank(elo) {
-    if (elo >= 2800) return "Grandmaster";
-    if (elo >= 2666) return "Master III";
-    if (elo >= 2533) return "Master II";
-    if (elo >= 2400) return "Master I";
-    if (elo >= 2300) return "Diamond III";
-    if (elo >= 2200) return "Diamond II";
-    if (elo >= 2100) return "Diamond I";
-    if (elo >= 2000) return "Platinum III";
-    if (elo >= 1900) return "Platinum II";
-    if (elo >= 1800) return "Platinum I";
-    if (elo >= 1700) return "Gold III";
-    if (elo >= 1600) return "Gold II";
-    if (elo >= 1500) return "Gold I";
-    if (elo >= 1400) return "Silver III";
-    if (elo >= 1300) return "Silver II";
+    if (elo >= 3000) return "Grandmaster";
+    if (elo >= 2800) return "Platinum III";
+    if (elo >= 2600) return "Platinum II";
+    if (elo >= 2400) return "Platinum I";
+    if (elo >= 2200) return "Gold III";
+    if (elo >= 2000) return "Gold II";
+    if (elo >= 1800) return "Gold I";
+    if (elo >= 1600) return "Silver III";
+    if (elo >= 1400) return "Silver II";
     if (elo >= 1200) return "Silver I";
     if (elo >= 800)  return "Bronze III";
     if (elo >= 400)  return "Bronze II";

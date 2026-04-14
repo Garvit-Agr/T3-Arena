@@ -68,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // -------------------------------------------------------------
     async function initializeMatch() {
         try {
-            // FIX: Now passing the Room ID and User ID in the URL
             let response = await fetch(`http://localhost:5001/api/match_init/${roomId}/${loggedInUid}`);
             let data = await response.json();
             
@@ -142,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // WEBSOCKET INTEGRATION (Replaces HTTP Polling)
+    // WEBSOCKET INTEGRATION
     // =========================================================================
     const gameSocket = new WebSocket(`ws://localhost:5001/ws/game/${roomId}/${loggedInUid}`);
 
@@ -174,27 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.type === "game_over") {
             showEndScreen(data);
         }
-
-        // Add this anywhere inside your gameSocket.onmessage block to handle incoming draws:
-        if (data.type === "draw_offered") {
-            if (confirm("Opponent has offered a draw. Do you accept?")) {
-                gameSocket.send(JSON.stringify({ type: "accept_draw" }));
-            } else {
-                gameSocket.send(JSON.stringify({ type: "reject_draw" }));
-            }
-        }
-        if (data.type === "draw_rejected") {
-            addLog("SYSTEM: Opponent rejected the draw offer.");
-            showToast("DRAW REJECTED");
-        }
-
     };
 
     gameSocket.onclose = () => {
         if (gameActive) addLog("SYSTEM ERROR: Connection to Arena lost.");
     };
 
-    // Safely reads Python's 2D array and updates your 1D HTML Grid
     function updateBoardFromBackend(backendBoard) {
         let newMoves = 0;
         for (let row = 0; row < 3; row++) {
@@ -216,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // If total moves increased, trigger your UI analytics
         if (newMoves > moveCount) {
             updateLiveAnalytics();
         }
@@ -233,7 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (boardState[index] !== "") return;
             if (!isMyTurn) { showToast("ACCESS DENIED: NOT YOUR TURN"); return; }
 
-            // Send move to Python Backend via WebSocket
             const row = Math.floor(index / 3);
             const col = index % 3;
 
@@ -256,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
         gameActive = false; 
         clearInterval(timerInterval); 
 
-        // Map Python WebSocket payload to your UI variables
         let resultType = "draw";
         if (matchData.winner === mySymbol) resultType = "victory";
         else if (matchData.winner && matchData.winner !== "DRAW") resultType = "defeat";
@@ -320,23 +301,15 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem("arena_auth_elo", currentElo.toString());
     }
 
-    // Buttons Send Backend Requests Instead of Faking It Now
+    // Resign Match Logic
     document.getElementById('btn-resign').addEventListener('click', () => {
         if (gameActive && confirm("Are you sure you want to resign? This will count as a loss.")) {
             gameSocket.send(JSON.stringify({ type: "resign" }));
         }
     });
 
-    document.getElementById('btn-offer-draw').addEventListener('click', () => {
-        if (gameActive) {
-            gameSocket.send(JSON.stringify({ type: "offer_draw" }));
-            addLog("SYSTEM: Draw offer transmitted.");
-        }
-    });
-
-    // Overlay Navigation Links
+    // White Action Buttons Logic (Rematch functionality is completely removed)
     document.getElementById('btn-return-lobby').addEventListener('click', () => { window.location.href = "lobby_command_center.html"; });
     document.getElementById('btn-view-leaderboard').addEventListener('click', () => { window.location.href = "leaderboard.html"; });
-    document.getElementById('btn-rematch').addEventListener('click', () => { window.location.href = "lobby_command_center.html"; });
 
 });

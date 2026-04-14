@@ -1,3 +1,41 @@
+// ==========================================
+// MODAL SYSTEM FUNCTIONS
+// ==========================================
+window.showModal = function(modalId) {
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    
+    document.querySelectorAll('.custom-modal').forEach(m => m.classList.add('hidden'));
+    
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.hideModal = function() {
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.classList.add('hidden');
+};
+
+window.showCustomAlert = function(title, message) {
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) {
+        const titleEl = document.getElementById('alert-title');
+        const msgEl = document.getElementById('alert-message');
+        if (titleEl) titleEl.innerHTML = title;
+        if (msgEl) msgEl.innerHTML = message;
+
+        const dismissBtn = document.querySelector('#modal-alert .btn-modal-decline');
+        if (dismissBtn) {
+            dismissBtn.onclick = function() {
+                window.hideModal();
+            };
+        }
+        window.showModal('modal-alert');
+    } else {
+        alert(title + "\n" + message);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
 
     const loggedInUser = sessionStorage.getItem("arena_auth_user");
@@ -53,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statWLRatio      = document.getElementById('stat-wl-ratio');
     const statNemesis      = document.getElementById('stat-nemesis');
     const statNetElo       = document.getElementById('stat-net-elo');
-    const widgetCombatScore= document.getElementById('widget-combat-score');
+    // Removed the widgetCombatScore element reference
 
     const btnPrev = document.getElementById('btn-prev');
     const btnNext = document.getElementById('btn-next');
@@ -63,24 +101,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalMatchData = [];
     let currentFilteredData = [];
     let currentFilter = 'all'; 
-    let searchQuery = '';
     
     let currentPage = 1;
     const ITEMS_PER_PAGE = 10;
 
-    document.getElementById('log-search').addEventListener('input', (e) => {
-        searchQuery = e.target.value.toLowerCase();
-        applyFiltersAndRender();
-    });
-
     const btnFilterAll = document.getElementById('btn-filter-all');
     const btnFilterWins = document.getElementById('btn-filter-wins');
     const btnFilterLosses = document.getElementById('btn-filter-losses');
+    const btnFilterDraws = document.getElementById('btn-filter-draws');
 
     function updateActiveFilterButton(activeBtn) {
         btnFilterAll.classList.remove('active');
         btnFilterWins.classList.remove('active');
         btnFilterLosses.classList.remove('active');
+        btnFilterDraws.classList.remove('active');
         activeBtn.classList.add('active');
     }
 
@@ -99,6 +133,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFilterLosses.addEventListener('click', () => {
         currentFilter = 'loss';
         updateActiveFilterButton(btnFilterLosses);
+        applyFiltersAndRender();
+    });
+
+    btnFilterDraws.addEventListener('click', () => {
+        currentFilter = 'draw';
+        updateActiveFilterButton(btnFilterDraws);
         applyFiltersAndRender();
     });
 
@@ -171,17 +211,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function applyFiltersAndRender() {
-        currentFilteredData = globalMatchData.filter(match => {
-            const passesFilter = (currentFilter === 'all') || (match.result === currentFilter);
-            const passesSearch = match.opponent_name.toLowerCase().includes(searchQuery);
-            return passesFilter && passesSearch;
-        });
-
-        currentPage = 1; 
-        renderLogs();
-    }
-
     function renderStats(matches) {
         if (!matches || matches.length === 0) return;
 
@@ -202,7 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
         statWinrate.innerText = winrate;
         statWLRatio.innerText = `${wins} W / ${losses} L`;
         statNetElo.innerText = netElo > 0 ? `+${netElo}` : netElo;
-        widgetCombatScore.innerText = (wins * 150) + (netElo * 2);
+        
+        // Removed the widgetCombatScore calculation since the widget was deleted
 
         if (total > 0) {
             const opponentCounts = {};
@@ -262,7 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
             logClone.querySelector('.js-date').innerText = formatDate(match.timestamp);
             logClone.querySelector('.js-avatar').innerText = getInitials(match.opponent_name);
             logClone.querySelector('.js-name').innerText = match.opponent_name;
-            logClone.querySelector('.js-rank').innerText = `${match.opponent_rank} RANKING`;
 
             fragment.appendChild(logClone);
         });
@@ -273,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchCombatLogs();
 
     // ==========================================
-    // COMBAT LOGS WEBSOCKET CONNECTION (Fixes the Offline bug!)
+    // COMBAT LOGS WEBSOCKET CONNECTION
     // ==========================================
     function connectLobbySocket() {
         const lobbySocket = new WebSocket(`ws://localhost:5001/ws/lobby/${loggedInUid}`);
@@ -286,13 +315,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = JSON.parse(event.data);
             
             if (data.type === "challenge_received") {
-                const accept = confirm(`SYSTEM PRIORITY: INCOMING CHALLENGE FROM OPERATOR ${data.from_uid}!\n\nAccept match?`);
-                lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: accept }));
-                if (accept) { alert("MATCH ACCEPTED. STANDBY FOR ROUTING..."); }
+                const overlay = document.getElementById('modal-overlay');
+                const c_name = `OPERATOR ${data.from_uid}`; 
+                
+                if (overlay) {
+                    const titleEl = document.getElementById('inc-challenger-title');
+                    if (titleEl) titleEl.textContent = `INCOMING CHALLENGE FROM ${c_name}`;
+                    const nEl = document.getElementById('inc-name');
+                    if (nEl) nEl.textContent = c_name;
+                    
+                    window.showModal('modal-incoming');
+
+                    document.getElementById('btn-accept-challenge').onclick = () => {
+                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: true }));
+                        window.showCustomAlert("SYSTEM UPDATE", "MATCH ACCEPTED.<br>STANDBY FOR ARENA ROUTING...");
+                    };
+                    
+                    document.getElementById('btn-decline-challenge').onclick = () => {
+                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: false }));
+                        window.hideModal();
+                    };
+                } else {
+                    const accept = confirm(`SYSTEM PRIORITY: INCOMING CHALLENGE FROM OPERATOR ${data.from_uid}!\n\nAccept match?`);
+                    lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: accept }));
+                    if (accept) { alert("MATCH ACCEPTED. STANDBY FOR ROUTING..."); }
+                }
             }
 
             if (data.type === "challenge_declined") {
-                alert("CHALLENGE DECLINED: THE TARGET OPERATOR REJECTED YOUR MATCH.");
+                window.showCustomAlert("CHALLENGE DECLINED", "THE TARGET OPERATOR REJECTED YOUR MATCH.");
+                setTimeout(() => window.hideModal(), 1500);
+            }
+
+            if (data.type === "challenge_cancelled") {
+                window.hideModal();
             }
 
             if (data.type === "match_start") {
