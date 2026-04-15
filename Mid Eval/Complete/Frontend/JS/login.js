@@ -1,89 +1,78 @@
-// login page logic handling
 document.addEventListener('DOMContentLoaded', () => {
 
-    // fetching required document nodes with compact but readable names
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('snapshot');
-    const captured_frame = document.getElementById('captured-frame');
+    const cap_frame = document.getElementById('cap-frame');
     const scan_btn = document.getElementById('scan-btn');
     const btn_text = document.getElementById('btn-text');
-    const status_text = document.getElementById('sys-status-txt');
+    const sts_text = document.getElementById('sys-sts');
     const ctx = canvas.getContext('2d');
 
-    // requesting user webcam stream
+    // Start camera feed
     navigator.mediaDevices
         .getUserMedia({ video: { facingMode: 'user' } })
-        .then(stream => {
-            video.srcObject = stream;
-        })
+        .then(stream => { video.srcObject = stream; })
         .catch(err => {
-            console.error('hardware access failed or denied:', err);
-            status_text.textContent = 'ERROR: CAMERA HARDWARE NOT DETECTED';
-            status_text.classList.add('status-err');
+            console.error('Camera access failed:', err);
+            sts_text.textContent = 'ERROR: CAMERA HARDWARE NOT DETECTED';
+            sts_text.classList.add('status-err');
         });
 
-    // click event listener for processing scan
+    // Scan button handler
     scan_btn.addEventListener('click', () => {
-        
-        // immediately prevent rapid double entries
         if (scan_btn.disabled) return;
 
-        // lock interface
         scan_btn.disabled = true;
         btn_text.textContent = 'EXTRACTING BIOMETRICS...';
-        status_text.textContent = 'TRANSMITTING TO AUTH SERVER...';
+        sts_text.textContent = 'TRANSMITTING TO AUTH SERVER...';
 
-        // align canvas sizing and capture screen context mirrored
+        // Capture mirrored frame
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // translate canvas buffer to base 64 image format
-        const base64_image = canvas.toDataURL('image/jpeg', 0.9);
+        const b64_img = canvas.toDataURL('image/jpeg', 0.9);
 
-        // switch dynamic view buffer out with the snapshot
-        captured_frame.src = base64_image;
+        // Swap live feed with snapshot
+        cap_frame.src = b64_img;
         video.classList.add('hidden');
-        captured_frame.classList.remove('hidden');
+        cap_frame.classList.remove('hidden');
 
-        console.log('image gathered safely. routing to backend.');
-
-        // FIX: Dynamic API Base to support both Localhost and Ngrok on Mobile
-        const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        // Dynamic base for localhost vs ngrok
+        const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
             ? 'http://localhost:5001' 
             : window.location.origin;
 
-        // send parsed picture text to standard verification route
-        fetch(apiBase + '/login', {
+        fetch(api + '/login', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'  // <--- THIS IS THE ONLY CHANGE
+                'ngrok-skip-browser-warning': 'true'
             },
-            body: JSON.stringify({ image: base64_image }),
+            body: JSON.stringify({ image: b64_img }),
             credentials: 'include',
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                handle_success(data);
+                on_success(data);
             } else {
-                throw new Error('backend could not locate facial match.');
+                throw new Error('No facial match found.');
             }
         })
         .catch(err => {
-            console.error('validation failed heavily', err);
-            handle_error();
+            console.error('Auth failed:', err);
+            on_error();
         });
     });
 
-    // parses success json and updates temporary cache for redirect
-    function handle_success(data) {
+    // Login success — store session, redirect
+    function on_success(data) {
         btn_text.textContent = 'ACCESS GRANTED';
-        status_text.textContent = `WELCOME, ${data.name.toUpperCase()}`;
-        status_text.classList.add('status-ok');
+        sts_text.textContent = `WELCOME, ${data.name.toUpperCase()}`;
+        sts_text.classList.add('status-ok');
 
         sessionStorage.setItem('arena_auth_user', data.name);
         sessionStorage.setItem('arena_auth_uid',  data.uid);
@@ -94,23 +83,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
-    // displays visual fault state
-    function handle_error() {
+    // Show error state
+    function on_error() {
         btn_text.textContent = 'AUTH SERVER OFFLINE / FAILED';
-        status_text.textContent = 'CONNECTION REFUSED. RETRY?';
-        status_text.classList.add('status-err');
-
+        sts_text.textContent = 'CONNECTION REFUSED. RETRY?';
+        sts_text.classList.add('status-err');
         setTimeout(reset_ui, 2500);
     }
 
-    // rewinds all css modifications and allows button input again
+    // Reset to initial state
     function reset_ui() {
         btn_text.textContent = 'SCAN IDENTITY';
-        status_text.textContent = 'SYSTEM READY: AWAITING INPUT';
-        status_text.classList.remove('status-ok', 'status-err');
+        sts_text.textContent = 'SYSTEM READY: AWAITING INPUT';
+        sts_text.classList.remove('status-ok', 'status-err');
 
         scan_btn.disabled = false;
-        captured_frame.classList.add('hidden');
+        cap_frame.classList.add('hidden');
         video.classList.remove('hidden');
     }
 });

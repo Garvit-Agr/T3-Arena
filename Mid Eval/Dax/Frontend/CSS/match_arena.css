@@ -1,4 +1,4 @@
-/* match_arena.css */
+/* Colors and fonts */
 
 :root {
     --color-surface-dim: #131313;
@@ -16,7 +16,7 @@
     --font-body: 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    /* Overlay Theme Base Variables */
+    /* Theme vars for result overlay */
     --color-warning: #ffbf00;
     --theme-color: var(--color-primary);
     --theme-bg: rgba(173, 198, 255, 0.15);
@@ -44,7 +44,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 ::-webkit-scrollbar-thumb { background: var(--color-surface-highest); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-secondary); }
 
-/* Minimal Header (Lockdown) */
+/* Header (locked during match) */
 .top-nav {
     position: fixed; top: 0; width: 100%; height: 4rem; background-color: rgba(19, 19, 19, 0.9);
     border-bottom: 1px solid rgba(66, 71, 84, 0.2); display: flex; justify-content: space-between;
@@ -56,7 +56,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .stat-elo { font-weight: 700; color: var(--color-primary); font-size: 0.875rem; }
 .profile-avatar { width: 2rem; height: 2rem; border-radius: 50%; background-color: var(--color-surface); border: 1px solid var(--color-outline-var); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; }
 
-/* Toast Notification */
+/* Toast popup */
 .toast-container {
     position: fixed; top: 5rem; left: 50%; transform: translateX(-50%);
     background-color: rgba(42, 19, 19, 0.95); border: 1px solid var(--color-danger);
@@ -67,11 +67,11 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 }
 .toast-container.hidden { opacity: 0; pointer-events: none; transform: translate(-50%, -10px); }
 
-/* Main Layout */
+/* Layout */
 .arena-main { padding: 6rem 2rem 2rem; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 .arena-layout { display: flex; gap: 2rem; width: 100%; max-width: 1200px; }
 
-/* Side Panels */
+/* Player panels */
 .panel-col { width: 25%; display: flex; flex-direction: column; gap: 1.5rem; }
 .player-card { background: var(--color-surface-low); padding: 1.5rem; border-radius: 0.5rem; border: 1px solid rgba(66, 71, 84, 0.1); }
 .card-you { border-color: rgba(173, 198, 255, 0.3); }
@@ -92,7 +92,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .stat-lbl { font-size: 0.5rem; color: var(--color-on-surface-var); opacity: 0.5; text-transform: uppercase; margin-bottom: 0.25rem; }
 .stat-val { font-size: 0.875rem; font-weight: 700; }
 
-/* Logs & Analytics Panels */
+/* Logs and analytics */
 .tech-logs { background: var(--color-surface-low); padding: 1.25rem; border-radius: 0.5rem; border: 1px solid rgba(66, 71, 84, 0.1); flex: 1; display: flex; flex-direction: column; }
 .border-primary-dim { border-color: rgba(173, 198, 255, 0.1); }
 .log-header { display: flex; justify-content: space-between; align-items: center; color: var(--color-on-surface-var); opacity: 0.7; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(66, 71, 84, 0.2); }
@@ -109,32 +109,32 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .mb-4 { margin-bottom: 1rem; }
 .mt-4 { margin-top: 1rem; }
 
-/* Center Game Board */
+/* Game board */
 .board-col { width: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
 .turn-indicator { display: flex; align-items: center; gap: 0.75rem; background: rgba(173, 198, 255, 0.1); border: 1px solid rgba(173, 198, 255, 0.3); padding: 0.5rem 1.5rem; border-radius: 2rem; margin-bottom: 2rem; transition: all 0.3s ease;}
 .turn-indicator.opponent-turn { background: rgba(66, 71, 84, 0.2); border-color: rgba(66, 71, 84, 0.4); }
 .turn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 10px var(--color-primary); transition: all 0.3s ease;}
 .opponent-turn .turn-dot { background: var(--color-on-surface-var); box-shadow: none; opacity: 0.5;}
-#turn-text { font-size: 0.875rem; font-weight: 700; letter-spacing: 0.2em; color: var(--color-primary); transition: all 0.3s ease;}
-.opponent-turn #turn-text { color: var(--color-on-surface-var); opacity: 0.7; }
+#turn-txt { font-size: 0.875rem; font-weight: 700; letter-spacing: 0.2em; color: var(--color-primary); transition: all 0.3s ease;}
+.opponent-turn #turn-txt { color: var(--color-on-surface-var); opacity: 0.7; }
 
 .game-board { position: relative; background: var(--color-surface-low); padding: 1rem; border-radius: 0.75rem; border: 1px solid rgba(66, 71, 84, 0.2); display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
 
 .cell { width: 100px; height: 100px; background: var(--color-surface-dim); border: 1px solid rgba(66, 71, 84, 0.2); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; }
 .cell:hover { background: var(--color-surface); }
 
-/* Move Animations */
+/* Mark animations */
 .cell .material-symbols-outlined { font-size: 4rem; font-weight: 700; }
-.mark-x { color: var(--color-primary); text-shadow: 0 0 20px rgba(173, 198, 255, 0.6); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-.mark-o { color: var(--color-secondary); text-shadow: 0 0 20px rgba(78, 222, 163, 0.6); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+.mark-x { color: var(--color-primary); text-shadow: 0 0 20px rgba(173, 198, 255, 0.6); animation: popIn 0.3s ease-out forwards; }
+.mark-o { color: var(--color-secondary); text-shadow: 0 0 20px rgba(78, 222, 163, 0.6); animation: popIn 0.3s ease-out forwards; }
 
 @keyframes popIn {
     0% { transform: scale(0.3); opacity: 0; filter: blur(4px); }
     100% { transform: scale(1); opacity: 1; filter: blur(0); }
 }
 
-/* Decorative HUD */
+/* Board corner decoration */
 .hud-top-left { position: absolute; top: -1.5rem; left: -1.5rem; width: 2rem; height: 2rem; border-top: 2px solid var(--color-primary); border-left: 2px solid var(--color-primary); opacity: 0.3; }
 .hud-bottom-right { position: absolute; bottom: -1.5rem; right: -1.5rem; width: 2rem; height: 2rem; border-bottom: 2px solid var(--color-primary); border-right: 2px solid var(--color-primary); opacity: 0.3; }
 
@@ -150,9 +150,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
     .board-col { order: -1; }
 }
 
-/* ========================================================
-   MATCH RESULT OVERLAY (Magical Thematic Switching)
-   ======================================================== */
+/* Result overlay themes */
 
 .theme-victory {
     --theme-color: var(--color-secondary);
@@ -179,7 +177,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .theme-bg { background-color: var(--theme-bg) !important; border: 1px solid var(--theme-color) !important; }
 .border-theme { border-left-color: var(--theme-color) !important; }
 
-/* The Fullscreen Container */
+/* Result overlay container */
 .result-overlay {
     position: fixed; inset: 0; z-index: 200;
     display: flex; justify-content: center; align-items: center;
@@ -187,14 +185,14 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 }
 .result-overlay.hidden { opacity: 0; pointer-events: none; display: flex !important; z-index: -1;}
 
-/* Background layers */
+/* Backdrop */
 .result-backdrop { position: absolute; inset: 0; background: rgba(19, 19, 19, 0.85); backdrop-filter: blur(12px); overflow: hidden; z-index: 0; }
 .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(rgba(173, 198, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(173, 198, 255, 0.03) 1px, transparent 1px); background-size: 40px 40px; }
 .orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.15; pointer-events: none; background-color: var(--theme-color); transition: background-color 0.5s; }
 .orb-top { top: 10%; left: 50%; transform: translateX(-50%); width: 800px; height: 400px; }
 .orb-bottom { bottom: -10%; right: -10%; width: 500px; height: 500px; opacity: 0.1; }
 
-/* Main Content Wrapper */
+/* Result content */
 .result-content { position: relative; z-index: 10; width: 100%; max-width: 1000px; padding: 2rem; display: flex; flex-direction: column; align-items: center; animation: slideUpFade 0.6s ease forwards; }
 
 @keyframes slideUpFade {
@@ -202,7 +200,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
     100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Header Text */
+/* Result title */
 .result-header { text-align: center; margin-bottom: 3rem; }
 .status-pill { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; background: var(--theme-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.25rem; margin-bottom: 1rem; color: var(--theme-color); font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; }
 .pill-dot { width: 6px; height: 6px; border-radius: 50%; background-color: var(--theme-color); }
@@ -211,13 +209,13 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 
 @media (min-width: 768px) { .result-title-text { font-size: 8rem; } }
 
-/* Bento Box Grid */
+/* Bento grid */
 .result-bento { display: grid; grid-template-columns: 1fr; gap: 1rem; width: 100%; margin-bottom: 3rem; }
 @media (min-width: 768px) { .result-bento { grid-template-columns: 2fr 1fr; } }
 
 .bento-card { background: rgba(28, 27, 27, 0.8); border: 1px solid rgba(66, 71, 84, 0.2); border-radius: 0.5rem; padding: 1.5rem; position: relative; overflow: hidden; }
 
-/* ELO Layout */
+/* Elo card */
 .elo-card { display: flex; flex-direction: column; justify-content: space-between; min-height: 250px; }
 .bento-bg-icon { position: absolute; top: 1rem; right: 1rem; opacity: 0.05; }
 .bento-bg-icon .material-symbols-outlined { font-size: 6rem; color: var(--color-primary); }
@@ -234,14 +232,14 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .elo-badge { padding: 0.5rem 1rem; border-radius: 0.25rem; font-size: 1.25rem; font-weight: 900; }
 .elo-desc { font-size: 0.75rem; color: rgba(194, 198, 214, 0.7); max-width: 200px; line-height: 1.4; }
 
-/* Quick Stats Column */
+/* Stats column */
 .quick-stats-col { display: flex; flex-direction: column; gap: 1rem; }
 .stat-card { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-left-width: 3px; border-left-style: solid; }
 .stat-sm { font-size: 0.625rem; color: rgba(194, 198, 214, 0.6); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem; }
 .stat-lg { font-size: 1.5rem; font-weight: 900; }
 .icon-muted { color: rgba(194, 198, 214, 0.2); font-size: 2rem; }
 
-/* Terminal Logs */
+/* Logs card */
 .logs-card { grid-column: 1 / -1; padding: 0; background: rgba(14, 14, 14, 0.9); }
 .logs-card-header { padding: 0.75rem 1.5rem; background: rgba(32, 31, 31, 0.8); border-bottom: 1px solid rgba(66, 71, 84, 0.2); display: flex; justify-content: space-between; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.1em; }
 .logs-card-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto; }
@@ -250,7 +248,7 @@ body { background-color: var(--color-surface-dim); color: var(--color-on-surface
 .res-log-text { color: var(--color-on-surface-var); }
 .res-log-bold { font-weight: 700; color: var(--theme-color); }
 
-/* Bottom Action Buttons */
+/* Action buttons */
 .result-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.5rem; }
 .btn-action { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 2rem; border-radius: 0.25rem; border: 1px solid transparent; transition: all 0.2s ease; cursor: pointer; }
 .btn-action span.font-header { font-size: 1rem; font-weight: 900; letter-spacing: -0.02em; }

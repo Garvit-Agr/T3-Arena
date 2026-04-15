@@ -1,4 +1,4 @@
-/* root color palette mappings */
+/* Base colors */
 :root {
     --color-surface-dim: #131313;
     --color-surface-highest: #353534;
@@ -25,7 +25,7 @@
     --font-body: 'Inter', sans-serif;
 }
 
-/* base normalise */
+/* Reset default margins */
 * {
     margin: 0;
     padding: 0;
@@ -43,7 +43,7 @@ a { text-decoration: none; color: inherit; }
 button, select, input { font-family: inherit; }
 .hidden { display: none !important; }
 
-/* typography helpers */
+/* Fonts setup */
 .font-header { font-family: var(--font-header); }
 .font-body { font-family: var(--font-body); }
 
@@ -150,7 +150,7 @@ button, select, input { font-family: inherit; }
 }
 .profile-avatar span { font-size: 0.75rem; font-weight: 700; color: var(--color-on-surface-var); }
 
-/* side navigation drawer */
+/* Sidebar */
 .sidebar {
     position: fixed;
     left: 0;
@@ -168,6 +168,7 @@ button, select, input { font-family: inherit; }
 }
 
 .sidebar.sidebar-visible { transform: translateX(0); }
+.sidebar.sidebar-hidden { transform: translateX(-100%); }
 
 .sidebar-profile {
     padding: 0 1.5rem;
@@ -264,7 +265,7 @@ button, select, input { font-family: inherit; }
     background-color: var(--color-secondary);
 }
 
-/* controls for grids */
+/* Sorting and filtering */
 .controls-bar {
     display: flex;
     flex-wrap: wrap;
@@ -411,7 +412,7 @@ button, select, input { font-family: inherit; }
     transition: all 0.2s ease;
 }
 
-/* javascript dynamic application states */
+/* Interactive JS states */
 .state-fighting { background-color: var(--color-danger-bg); border-color: rgba(255, 84, 81, 0.3); }
 .state-fighting .status-badge { color: var(--color-danger); }
 .state-fighting .static-dot { background-color: var(--color-danger); }
@@ -493,9 +494,7 @@ button, select, input { font-family: inherit; }
 @media (min-width: 1280px) {
     .player-grid { grid-template-columns: repeat(4, 1fr); }
 }
-/* ========================================== */
-/* CUSTOM MODAL SYSTEM                        */
-/* ========================================== */
+/* Modal system */
 
 .modal-overlay {
     position: fixed;
@@ -521,7 +520,7 @@ button, select, input { font-family: inherit; }
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     border-radius: 0.25rem;
     overflow: hidden;
-    animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: modalPop 0.3s ease-out;
 }
 
 @keyframes modalPop {

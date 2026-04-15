@@ -39,7 +39,7 @@
 
         <div id="center-card">
 
-            <div id="page-title">
+            <div id="title-sect">
                 <h1 class="arena-heading">ARENA</h1>
                 <div class="title-sub">
                     <div class="divider-line"></div>
@@ -48,33 +48,33 @@
                 </div>
             </div>
 
-            <div id="cam-view">
-                <div id="cam-container">
+            <div id="cam-box">
+                <div id="cam-cont">
                     <video id="webcam" autoplay playsinline></video>
                     <canvas id="snapshot" class="hidden"></canvas>
-                    <img id="captured-frame" class="hidden" alt="Captured biometric frame"/>
+                    <img id="cap-frm" class="hidden" alt="Biometric frame"/>
                     <div class="gradient-fade" aria-hidden="true"></div>
                 </div>
             </div>
 
             <div id="controls">
 
-                <div id="status-ind">
+                <div id="sts-ind">
                     <span class="static-dot" aria-hidden="true"></span>
-                    <span id="sys-status-txt" class="dyn-status-txt">SYSTEM READY: AWAITING INPUT</span>
+                    <span id="sts-txt" class="dyn-status-txt">SYSTEM READY</span>
                 </div>
 
                 <button id="scan-btn">
                     <div class="scan-btn-inner">
                         <span class="material-symbols-outlined scan-btn-icn">fingerprint</span>
-                        <span id="btn-text">SCAN IDENTITY</span>
+                        <span id="btn-txt">SCAN IDENTITY</span>
                     </div>
                 </button>
 
-                <div id="auth-badge-wrap">
+                <div id="badge-wrap">
                     <div id="auth-badge">
-                        <div class="auth-lbl">Auth_Protocol</div>
-                        <div class="auth-val">BIOMETRIC_VAULT_v2.4</div>
+                        <div class="auth-lbl">Protocol</div>
+                        <div class="auth-val">BIOMETRIC_VAULT</div>
                     </div>
                 </div>
 

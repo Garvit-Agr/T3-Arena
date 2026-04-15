@@ -14,7 +14,7 @@
 <body>
 <header class="top-nav">
     <div class="nav-left">
-        <button id="sidebar-toggle" class="menu-btn">
+        <button id="side-tog" class="menu-btn">
             <span class="material-symbols-outlined">menu</span>
         </button>
         <span class="brand-text font-header">ARENA_OS</span>
@@ -117,14 +117,14 @@
                         <span class="font-header subtitle-text">CHRONOLOGICAL MATCH LOGS</span>
                     </div>
                     <div class="logs-filters">
-                        <button id="btn-filter-all" class="filter-btn active font-header">ALL</button>
-                        <button id="btn-filter-wins" class="filter-btn font-header">VICTORIES</button>
-                        <button id="btn-filter-losses" class="filter-btn font-header">DEFEATS</button>
-                        <button id="btn-filter-draws" class="filter-btn font-header">DRAWS</button>
+                        <button id="flt-all" class="filter-btn active font-header">ALL</button>
+                        <button id="flt-wins" class="filter-btn font-header">VICTORIES</button>
+                        <button id="flt-losses" class="filter-btn font-header">DEFEATS</button>
+                        <button id="flt-draws" class="filter-btn font-header">DRAWS</button>
                     </div>
                 </div>
 
-                <div class="logs-list" id="match-logs-container">
+                <div class="logs-list" id="logs-cnt">
                     <div class="empty-state font-header">ACCESSING SECURE ARCHIVES...</div>
                 </div>
 
@@ -147,7 +147,7 @@
     </div>
 </main>
 
-<template id="template-empty-state">
+<template id="tmpl-none">
     <div class="empty-state">
         <span class="material-symbols-outlined" style="font-size: 4rem;">folder_off</span>
         <p class="font-header" style="font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">NO RECORDS FOUND</p>
@@ -155,7 +155,7 @@
     </div>
 </template>
 
-<template id="template-log-entry">
+<template id="tmpl-log">
     <div class="log-entry">
         <div class="log-meta">
             <span class="log-date font-header js-date">00 XXX 0000</span>
@@ -176,14 +176,14 @@
     </div>
 </template>
 
-<div id="modal-overlay" class="modal-overlay hidden">
-    <div id="modal-incoming" class="custom-modal font-header hidden">
+<div id="overlay" class="modal-overlay hidden">
+    <div id="modal-inc" class="custom-modal font-header hidden">
         <div class="modal-sys-bar">
             <div class="sys-dot"></div>
             <span>SYSTEM PRIORITY: INCOMING CHALLENGE</span>
             <span class="sys-right">PROTOCOL: MATCH_PENDING</span>
         </div>
-        <h2 id="inc-challenger-title" class="modal-title">INCOMING CHALLENGE FROM PLAYER_7</h2>
+        <h2 id="chlg-title" class="modal-title">INCOMING CHALLENGE FROM PLAYER_7</h2>
         <div class="modal-stats-grid">
             <div class="stats-card-left">
                 <div class="modal-avatar"><span id="inc-initials">??</span></div>
@@ -205,10 +205,10 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button id="btn-accept-challenge" class="btn-modal-accept">
+            <button id="btn-accept" class="btn-modal-accept">
                 <span class="material-symbols-outlined">check_circle</span> ACCEPT
             </button>
-            <button id="btn-decline-challenge" class="btn-modal-decline">
+            <button id="btn-decline" class="btn-modal-decline">
                 <span class="material-symbols-outlined">cancel</span> DECLINE
             </button>
         </div>

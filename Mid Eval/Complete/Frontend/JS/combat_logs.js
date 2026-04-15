@@ -1,8 +1,6 @@
-// ==========================================
-// MODAL SYSTEM FUNCTIONS
-// ==========================================
+// Modal helpers
 window.showModal = function(modalId) {
-    const overlay = document.getElementById('modal-overlay');
+    const overlay = document.getElementById('overlay');
     if (overlay) overlay.classList.remove('hidden');
     
     document.querySelectorAll('.custom-modal').forEach(m => m.classList.add('hidden'));
@@ -12,71 +10,66 @@ window.showModal = function(modalId) {
 };
 
 window.hideModal = function() {
-    const overlay = document.getElementById('modal-overlay');
+    const overlay = document.getElementById('overlay');
     if (overlay) overlay.classList.add('hidden');
 };
 
-window.showCustomAlert = function(title, message) {
-    const overlay = document.getElementById('modal-overlay');
+window.showCustomAlert = function(title, msg) {
+    const overlay = document.getElementById('overlay');
     if (overlay) {
-        const titleEl = document.getElementById('alert-title');
-        const msgEl = document.getElementById('alert-message');
-        if (titleEl) titleEl.innerHTML = title;
-        if (msgEl) msgEl.innerHTML = message;
+        document.getElementById('alert-title').innerHTML = title;
+        document.getElementById('alert-message').innerHTML = msg;
 
-        const dismissBtn = document.querySelector('#modal-alert .btn-modal-decline');
-        if (dismissBtn) {
-            dismissBtn.onclick = function() {
-                window.hideModal();
-            };
+        const dis_btn = document.querySelector('#modal-alert .btn-modal-decline');
+        if (dis_btn) {
+            dis_btn.onclick = function() { window.hideModal(); };
         }
         window.showModal('modal-alert');
     } else {
-        alert(title + "\n" + message);
+        alert(title + "\n" + msg);
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const loggedInUser = sessionStorage.getItem("arena_auth_user");
-    const loggedInUid  = sessionStorage.getItem("arena_auth_uid");
+    const auth_user = sessionStorage.getItem("arena_auth_user");
+    const auth_uid  = sessionStorage.getItem("arena_auth_uid");
 
-    if (!loggedInUser || !loggedInUid) {
+    if (!auth_user || !auth_uid) {
         window.location.replace("login.html");
         return;
     }
 
-    const storedElo = parseInt(sessionStorage.getItem("arena_auth_elo") || "0");
-    document.getElementById('op-name').innerText = loggedInUser.replaceAll('_', ' ').toUpperCase();
-    document.getElementById('hdr-initials').innerText = getInitials(loggedInUser);
+    const stored_elo = parseInt(sessionStorage.getItem("arena_auth_elo") || "0");
+    document.getElementById('op-name').innerText = auth_user.replaceAll('_', ' ').toUpperCase();
+    document.getElementById('hdr-initials').innerText = get_initials(auth_user);
     
-    if (storedElo) {
-        document.getElementById('op-elo').innerText = `${storedElo.toLocaleString()} ELO`;
-        document.getElementById('hdr-elo').innerText = `${storedElo.toLocaleString()} ELO`;
-        document.getElementById('hdr-rank').innerText = getRankName(storedElo);
+    if (stored_elo) {
+        document.getElementById('op-elo').innerText = `${stored_elo.toLocaleString()} ELO`;
+        document.getElementById('hdr-elo').innerText = `${stored_elo.toLocaleString()} ELO`;
+        document.getElementById('hdr-rank').innerText = get_rank(stored_elo);
     }
 
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('main-content');
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
+    const mn_cnt = document.getElementById('main-content');
+    document.getElementById('side-tog').addEventListener('click', () => {
         if (window.innerWidth >= 768) {
             sidebar.classList.toggle('sidebar-hidden');
-            mainContent.classList.toggle('canvas-expanded');
+            mn_cnt.classList.toggle('canvas-expanded');
         } else {
             sidebar.classList.toggle('sidebar-visible');
         }
     });
 
-    // THE DISCONNECT BUTTON LOGIC
+    // Logout
     document.getElementById('btn-logout').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
-            // FIX: Dynamic API Base for Logout
-            const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
-            await fetch(`${apiBase}/logout`, {
+            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+            await fetch(`${api}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: loggedInUid }),
+                body: JSON.stringify({ uid: auth_uid }),
                 credentials: 'include'
             });
         } catch (_) {}
@@ -84,97 +77,91 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'login.html';
     });
 
-    const logsContainer = document.getElementById('match-logs-container');
-    const templateLog   = document.getElementById('template-log-entry');
-    const templateEmpty = document.getElementById('template-empty-state');
+    const logs_cnt = document.getElementById('logs-cnt');
+    const tmpl_log = document.getElementById('tmpl-log');
+    const tmpl_empty = document.getElementById('tmpl-none');
 
-    const statTotalMatches = document.getElementById('stat-total-matches');
-    const statWinrate      = document.getElementById('stat-winrate');
-    const statWLRatio      = document.getElementById('stat-wl-ratio');
-    const statNemesis      = document.getElementById('stat-nemesis');
-    const statNetElo       = document.getElementById('stat-net-elo');
-    // Removed the widgetCombatScore element reference
+    const stat_total = document.getElementById('stat-total-matches');
+    const stat_wr = document.getElementById('stat-winrate');
+    const stat_wl = document.getElementById('stat-wl-ratio');
+    const stat_nem = document.getElementById('stat-nemesis');
+    const stat_net = document.getElementById('stat-net-elo');
 
-    const btnPrev = document.getElementById('btn-prev');
-    const btnNext = document.getElementById('btn-next');
-    const pgInfo = document.getElementById('pg-info');
-    const pgInd = document.getElementById('pg-ind');
+    const btn_prev = document.getElementById('btn-prev');
+    const btn_next = document.getElementById('btn-next');
+    const pg_info = document.getElementById('pg-info');
+    const pg_ind = document.getElementById('pg-ind');
 
-    let globalMatchData = [];
-    let currentFilteredData = [];
-    let currentFilter = 'all'; 
+    let match_data = [];
+    let filtered = [];
+    let cur_flt = 'all'; 
     
-    let currentPage = 1;
-    const ITEMS_PER_PAGE = 10;
+    let cur_pg = 1;
+    const per_pg = 10;
 
-    const btnFilterAll = document.getElementById('btn-filter-all');
-    const btnFilterWins = document.getElementById('btn-filter-wins');
-    const btnFilterLosses = document.getElementById('btn-filter-losses');
-    const btnFilterDraws = document.getElementById('btn-filter-draws');
+    const flt_all = document.getElementById('flt-all');
+    const flt_wins = document.getElementById('flt-wins');
+    const flt_losses = document.getElementById('flt-losses');
+    const flt_draws = document.getElementById('flt-draws');
 
-    function updateActiveFilterButton(activeBtn) {
-        btnFilterAll.classList.remove('active');
-        btnFilterWins.classList.remove('active');
-        btnFilterLosses.classList.remove('active');
-        btnFilterDraws.classList.remove('active');
-        activeBtn.classList.add('active');
+    // Swap active class on filter buttons
+    function set_active_flt(btn) {
+        flt_all.classList.remove('active');
+        flt_wins.classList.remove('active');
+        flt_losses.classList.remove('active');
+        flt_draws.classList.remove('active');
+        btn.classList.add('active');
     }
 
-    btnFilterAll.addEventListener('click', () => {
-        currentFilter = 'all';
-        updateActiveFilterButton(btnFilterAll);
-        applyFiltersAndRender();
+    flt_all.addEventListener('click', () => {
+        cur_flt = 'all';
+        set_active_flt(flt_all);
+        apply_filters();
     });
 
-    btnFilterWins.addEventListener('click', () => {
-        currentFilter = 'win';
-        updateActiveFilterButton(btnFilterWins);
-        applyFiltersAndRender();
+    flt_wins.addEventListener('click', () => {
+        cur_flt = 'win';
+        set_active_flt(flt_wins);
+        apply_filters();
     });
 
-    btnFilterLosses.addEventListener('click', () => {
-        currentFilter = 'loss';
-        updateActiveFilterButton(btnFilterLosses);
-        applyFiltersAndRender();
+    flt_losses.addEventListener('click', () => {
+        cur_flt = 'loss';
+        set_active_flt(flt_losses);
+        apply_filters();
     });
 
-    btnFilterDraws.addEventListener('click', () => {
-        currentFilter = 'draw';
-        updateActiveFilterButton(btnFilterDraws);
-        applyFiltersAndRender();
+    flt_draws.addEventListener('click', () => {
+        cur_flt = 'draw';
+        set_active_flt(flt_draws);
+        apply_filters();
     });
 
-    btnNext.addEventListener('click', () => {
-        const totalPages = Math.ceil(currentFilteredData.length / ITEMS_PER_PAGE);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderLogs();
-        }
+    // Pagination
+    btn_next.addEventListener('click', () => {
+        const tot_pgs = Math.ceil(filtered.length / per_pg);
+        if (cur_pg < tot_pgs) { cur_pg++; render_logs(); }
     });
     
-    btnPrev.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderLogs();
-        }
+    btn_prev.addEventListener('click', () => {
+        if (cur_pg > 1) { cur_pg--; render_logs(); }
     });
 
-    function getInitials(name) {
+    function get_initials(name) {
         if (!name) return "??";
         const parts = name.trim().split(/[_\s]+/);
         if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         return name.substring(0, 2).toUpperCase();
     }
 
-    function formatDate(dateString) {
-        const d = new Date(dateString);
+    function fmt_date(str) {
+        const d = new Date(str);
         const day = d.getDate().toString().padStart(2, '0');
         const month = d.toLocaleString('default', { month: 'short' }).toUpperCase();
-        const year = d.getFullYear();
-        return `${day} ${month} ${year}`;
+        return `${day} ${month} ${d.getFullYear()}`;
     }
 
-    function getRankName(elo) {
+    function get_rank(elo) {
         if (elo >= 2800) return "Grandmaster";
         if (elo >= 2000) return "Platinum I";
         if (elo >= 1500) return "Gold I";
@@ -182,217 +169,185 @@ document.addEventListener('DOMContentLoaded', () => {
         return "Bronze I";
     }
 
-    async function fetchCombatLogs() {
+    // Pull match history from backend
+    async function fetch_logs() {
         try {
-            // FIX: Dynamic API Base for Fetching Logs
-            const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
-            const response = await fetch(`${apiBase}/api/match-history/${loggedInUid}`, { credentials: 'include' });
-            const data = await response.json();
+            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+            const res = await fetch(`${api}/api/match-history/${auth_uid}`, { credentials: 'include' });
+            const data = await res.json();
 
             if (data.matches) {
-                const serverUid = data.current_user_id;
+                const svr_uid = data.current_user_id;
 
-                globalMatchData = data.matches.map(m => {
-                    const isWin = m.winner_uid === serverUid;
-                    const isDraw = m.winner_uid === null && !m.forfeit;
+                match_data = data.matches.map(m => {
+                    const is_win = m.winner_uid === svr_uid;
+                    const is_draw = m.winner_uid === null && !m.forfeit;
 
                     return {
                         timestamp: m.played_at, 
-                        result: isDraw ? 'draw' : (isWin ? 'win' : 'loss'),
-                        opponent_name: (m.player1_uid === serverUid ? m.p2_name : m.p1_name) || "Unknown",
-                        opponent_rank: "OPPONENT", 
-                        elo_change: m.player1_uid === serverUid 
+                        result: is_draw ? 'draw' : (is_win ? 'win' : 'loss'),
+                        opp_name: (m.player1_uid === svr_uid ? m.p2_name : m.p1_name) || "Unknown",
+                        elo_chg: m.player1_uid === svr_uid 
                             ? (m.player1_elo_after - m.player1_elo_before) 
                             : (m.player2_elo_after - m.player2_elo_before)
                     };
                 });
                 
-                renderStats(globalMatchData);
-                applyFiltersAndRender();
+                calc_stats(match_data);
+                apply_filters();
             }
-        } catch (error) {
-            console.error('Fetch error:', error);
+        } catch (err) {
+            console.error('Failed to load logs:', err);
         }
     }
 
-    function renderStats(matches) {
+    // Calculate summary stats
+    function calc_stats(matches) {
         if (!matches || matches.length === 0) return;
 
-        let wins = 0;
-        let losses = 0;
-        let draws = 0; // Track draws separately
-        let netElo = 0;
+        let wins = 0, losses = 0, draws = 0, net_elo = 0;
         
-        matches.forEach(match => {
-            if (match.result === 'win') wins++;
-            else if (match.result === 'loss') losses++;
+        matches.forEach(m => {
+            if (m.result === 'win') wins++;
+            else if (m.result === 'loss') losses++;
             else draws++;
-            
-            netElo += match.elo_change;
+            net_elo += m.elo_chg;
         });
 
         const total = wins + losses + draws;
-        const winrate = total > 0 ? ((wins / total) * 100).toFixed(1) : "0.0";
+        const wr = total > 0 ? ((wins / total) * 100).toFixed(1) : "0.0";
 
-        statTotalMatches.innerText = total;
-        statWinrate.innerText = winrate;
-        statWLRatio.innerText = `${wins} W / ${losses} L / ${draws} D`; // Show Draws in UI
-        statNetElo.innerText = netElo > 0 ? `+${netElo}` : netElo;
+        stat_total.innerText = total;
+        stat_wr.innerText = wr;
+        stat_wl.innerText = `${wins} W / ${losses} L / ${draws} D`;
+        stat_net.innerText = net_elo > 0 ? `+${net_elo}` : net_elo;
 
+        // Find most-faced opponent
         if (total > 0) {
-            const opponentCounts = {};
+            const opp_counts = {};
             matches.forEach(m => {
-                opponentCounts[m.opponent_name] = (opponentCounts[m.opponent_name] || 0) + 1;
+                opp_counts[m.opp_name] = (opp_counts[m.opp_name] || 0) + 1;
             });
-            const nemesisName = Object.keys(opponentCounts).reduce((a, b) => opponentCounts[a] > opponentCounts[b] ? a : b);
-            statNemesis.innerText = nemesisName.toUpperCase();
+            const nemesis = Object.keys(opp_counts).reduce((a, b) => opp_counts[a] > opp_counts[b] ? a : b);
+            stat_nem.innerText = nemesis.toUpperCase();
         }
     }
 
-    function applyFiltersAndRender() {
-        currentFilteredData = globalMatchData.filter(match => {
-            return (currentFilter === 'all') || (match.result === currentFilter);
+    // Apply filter then render
+    function apply_filters() {
+        filtered = match_data.filter(m => {
+            return (cur_flt === 'all') || (m.result === cur_flt);
         });
-
-        currentPage = 1; 
-        renderLogs();
+        cur_pg = 1; 
+        render_logs();
     }
 
-    function renderLogs() {
-        logsContainer.innerHTML = ''; 
+    // Render paginated log entries
+    function render_logs() {
+        logs_cnt.innerHTML = ''; 
 
-        const total = currentFilteredData.length;
-        const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+        const total = filtered.length;
+        const tot_pgs = Math.max(1, Math.ceil(total / per_pg));
         
-        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-        const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, total);
-        const pageData = currentFilteredData.slice(startIdx, endIdx);
+        const st = (cur_pg - 1) * per_pg;
+        const ed = Math.min(st + per_pg, total);
+        const pg_data = filtered.slice(st, ed);
 
-        pgInfo.innerText = `Showing ${total > 0 ? startIdx + 1 : 0} to ${endIdx} of ${total} records`;
-        pgInd.innerText = `Page ${currentPage.toString().padStart(2, '0')} / ${totalPages.toString().padStart(2, '0')}`;
-        btnPrev.disabled = currentPage === 1;
-        btnNext.disabled = currentPage === totalPages;
+        pg_info.innerText = `Showing ${total > 0 ? st + 1 : 0} to ${ed} of ${total} records`;
+        pg_ind.innerText = `Page ${cur_pg.toString().padStart(2, '0')} / ${tot_pgs.toString().padStart(2, '0')}`;
+        btn_prev.disabled = cur_pg === 1;
+        btn_next.disabled = cur_pg === tot_pgs;
 
-        if (pageData.length === 0) {
-            const emptyClone = templateEmpty.content.cloneNode(true);
-            logsContainer.appendChild(emptyClone);
+        if (pg_data.length === 0) {
+            logs_cnt.appendChild(tmpl_empty.content.cloneNode(true));
             return;
         }
 
-        const fragment = document.createDocumentFragment();
+        const frag = document.createDocumentFragment();
 
-        pageData.forEach(match => {
-            const logClone = templateLog.content.cloneNode(true);
-            const entryWrapper = logClone.querySelector('.log-entry');
-            const resultTextEl = logClone.querySelector('.js-result-text');
-            const scoreChangeEl = logClone.querySelector('.js-score-change');
+        pg_data.forEach(m => {
+            const cln = tmpl_log.content.cloneNode(true);
+            const entry = cln.querySelector('.log-entry');
+            const res_txt = cln.querySelector('.js-result-text');
+            const score_el = cln.querySelector('.js-score-change');
 
-            // --- FIXED DRAW LOGIC ---
-            if (match.result === 'win') {
-                entryWrapper.classList.add('is-win');
-                resultTextEl.innerText = 'VICTORY';
-                scoreChangeEl.innerText = `+${match.elo_change}`;
-            } else if (match.result === 'draw') {
-                entryWrapper.classList.add('is-draw');
-                resultTextEl.innerText = 'DRAW';
-                // For draws, show +/- normally (e.g., -1 or +0)
-                scoreChangeEl.innerText = match.elo_change > 0 ? `+${match.elo_change}` : match.elo_change;
+            if (m.result === 'win') {
+                entry.classList.add('is-win');
+                res_txt.innerText = 'VICTORY';
+                score_el.innerText = `+${m.elo_chg}`;
+            } else if (m.result === 'draw') {
+                entry.classList.add('is-draw');
+                res_txt.innerText = 'DRAW';
+                score_el.innerText = m.elo_chg > 0 ? `+${m.elo_chg}` : m.elo_chg;
             } else {
-                entryWrapper.classList.add('is-loss');
-                resultTextEl.innerText = 'DEFEAT';
-                scoreChangeEl.innerText = match.elo_change;
+                entry.classList.add('is-loss');
+                res_txt.innerText = 'DEFEAT';
+                score_el.innerText = m.elo_chg;
             }
 
-            logClone.querySelector('.js-date').innerText = formatDate(match.timestamp);
-            logClone.querySelector('.js-avatar').innerText = getInitials(match.opponent_name);
-            logClone.querySelector('.js-name').innerText = match.opponent_name;
+            cln.querySelector('.js-date').innerText = fmt_date(m.timestamp);
+            cln.querySelector('.js-avatar').innerText = get_initials(m.opp_name);
+            cln.querySelector('.js-name').innerText = m.opp_name;
 
-            fragment.appendChild(logClone);
+            frag.appendChild(cln);
         });
 
-        logsContainer.appendChild(fragment);
+        logs_cnt.appendChild(frag);
     }
 
-    fetchCombatLogs();
+    fetch_logs();
 
-    // ==========================================
-    // COMBAT LOGS WEBSOCKET CONNECTION
-    // ==========================================
-    function connectLobbySocket() {
-        // FIX: Dynamic WebSocket routing
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'localhost:5001' : window.location.host;
-        const lobbySocket = new WebSocket(`${wsProtocol}//${wsHost}/ws/lobby/${loggedInUid}`);
-        
-        lobbySocket.onopen = () => {
-            console.log("Combat Logs socket connected. User is ONLINE.");
-        };
+    // Keep user online via websocket + handle challenges
+    function prep_socket() {
+        const ws_proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws_host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'localhost:5001' : window.location.host;
+        const lb_sock = new WebSocket(`${ws_proto}//${ws_host}/ws/lobby/${auth_uid}`);
 
-        lobbySocket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        lb_sock.onmessage = (e) => {
+            const dt = JSON.parse(e.data);
             
-            if (data.type === "challenge_received") {
-                const overlay = document.getElementById('modal-overlay');
+            if (dt.type === "challenge_received") {
+                const overlay = document.getElementById('overlay');
                 
-                // --- NEW DATA MAPPING ---
-                // Parse the incoming data, falling back to ??? if undefined
-                const c_name = data.challenger_name ? data.challenger_name.toUpperCase() : `OPERATOR ${data.from_uid}`;
-                const c_elo = data.challenger_elo || "???";
-                const c_wr = data.challenger_winrate !== undefined ? data.challenger_winrate : "???";
+                const c_name = dt.challenger_name ? dt.challenger_name.toUpperCase() : `OPERATOR ${dt.from_uid}`;
+                const c_elo = dt.challenger_elo || "???";
+                const c_wr = dt.challenger_winrate !== undefined ? dt.challenger_winrate : "???";
                 
                 if (overlay) {
-                    const titleEl = document.getElementById('inc-challenger-title');
-                    if (titleEl) titleEl.textContent = `INCOMING CHALLENGE FROM ${c_name}`;
+                    document.getElementById('chlg-title').textContent = `INCOMING CHALLENGE FROM ${c_name}`;
+                    document.getElementById('inc-name').textContent = c_name;
+                    document.getElementById('inc-initials').textContent = get_initials(c_name);
+                    document.getElementById('inc-elo').textContent = `${c_elo.toLocaleString()} ELO`;
+                    document.getElementById('inc-wr').textContent = `${c_wr}%`;
                     
-                    const nEl = document.getElementById('inc-name');
-                    if (nEl) nEl.textContent = c_name;
+                    window.showModal('modal-inc');
 
-                    // Update the visual stats in the modal
-                    const initEl = document.getElementById('inc-initials');
-                    if (initEl) initEl.textContent = getInitials(c_name);
-                    
-                    const eloEl = document.getElementById('inc-elo');
-                    if (eloEl) eloEl.textContent = `${c_elo.toLocaleString()} ELO`;
-                    
-                    const wrEl = document.getElementById('inc-wr');
-                    if (wrEl) wrEl.textContent = `${c_wr}%`;
-                    
-                    window.showModal('modal-incoming');
-
-                    document.getElementById('btn-accept-challenge').onclick = () => {
-                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: true }));
+                    document.getElementById('btn-accept').onclick = () => {
+                        lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: true }));
                         window.showCustomAlert("SYSTEM UPDATE", "MATCH ACCEPTED.<br>STANDBY FOR ARENA ROUTING...");
                     };
                     
-                    document.getElementById('btn-decline-challenge').onclick = () => {
-                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: false }));
+                    document.getElementById('btn-decline').onclick = () => {
+                        lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: false }));
                         window.hideModal();
                     };
                 } else {
-                    const accept = confirm(`SYSTEM PRIORITY: INCOMING CHALLENGE FROM ${c_name}!\n\nAccept match?`);
-                    lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: accept }));
-                    if (accept) { alert("MATCH ACCEPTED. STANDBY FOR ROUTING..."); }
+                    const accept = confirm(`Incoming challenge from ${c_name}!\n\nAccept?`);
+                    lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: accept }));
                 }
             }
 
-            if (data.type === "challenge_declined") {
+            if (dt.type === "challenge_declined") {
                 window.showCustomAlert("CHALLENGE DECLINED", "THE TARGET OPERATOR REJECTED YOUR MATCH.");
                 setTimeout(() => window.hideModal(), 1500);
             }
 
-            if (data.type === "challenge_cancelled") {
-                window.hideModal();
-            }
-
-            if (data.type === "match_start") {
-                window.location.href = `match_arena.html?room=${data.room_id}&symbol=${data.symbol}`;
-            }
+            if (dt.type === "challenge_cancelled") window.hideModal();
+            if (dt.type === "match_start") window.location.href = `match_arena.html?room=${dt.room_id}&symbol=${dt.symbol}`;
         };
 
-        lobbySocket.onclose = () => {
-            setTimeout(connectLobbySocket, 2000);
-        };
+        lb_sock.onclose = () => { setTimeout(prep_socket, 2000); };
     }
 
-    connectLobbySocket();
+    prep_socket();
 });

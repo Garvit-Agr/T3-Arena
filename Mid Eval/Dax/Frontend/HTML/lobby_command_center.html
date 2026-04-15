@@ -15,14 +15,14 @@
 
 <header class="top-nav">
     <div class="nav-left">
-        <button id="sidebar-toggle" class="menu-btn">
+        <button id="side-tog" class="menu-btn">
             <span class="material-symbols-outlined">menu</span>
         </button>
         <span class="brand-text font-header">ARENA_OS</span>
         
         <div class="search-box">
             <span class="material-symbols-outlined">search</span>
-            <input id="player-search" class="search-input font-header" placeholder="LOCATE_PLAYER" type="text"/>
+            <input id="src-in" class="search-input font-header" placeholder="LOCATE_PLAYER" type="text"/>
         </div>
     </div>
 
@@ -71,22 +71,22 @@
         </div>
         <div class="live-ind font-header">
             <span class="static-dot"></span>
-            <span id="online-count">— ONLINE</span>
+            <span id="onl-cnt">— ONLINE</span>
         </div>
     </div>
 
     <div class="controls-bar">
-        <button id="btn-filter-all" class="filter-btn font-header active">All_Players</button>
-        <button id="btn-filter-gm" class="filter-btn font-header">Grandmasters</button>
+        <button id="flt-all" class="filter-btn font-header active">All_Players</button>
+        <button id="flt-gm" class="filter-btn font-header">Grandmasters</button>
         
         <div class="mobile-search">
             <span class="material-symbols-outlined">search</span>
-            <input id="mobile-search-input" class="search-input font-header" placeholder="LOCATE_PLAYER..." type="text"/>
+            <input id="mob-src-in" class="search-input font-header" placeholder="LOCATE_PLAYER..." type="text"/>
         </div>
 
         <div class="sort-drop font-header">
             <span class="material-symbols-outlined">filter_list</span>
-            <select id="sort-select" class="sort-select font-header">
+            <select id="srt-sel" class="sort-select font-header">
                 <option value="elo-desc">Sort: Rating (Highest)</option>
                 <option value="elo-asc">Sort: Rating (Lowest)</option>
                 <option value="win-desc">Sort: Win Rate (Highest)</option>
@@ -97,7 +97,7 @@
         </div>
     </div>
 
-    <div id="player-grid" class="player-grid">
+    <div id="grid" class="player-grid">
     </div>
 </main>
 
@@ -116,7 +116,7 @@
     </a>
 </nav>
 
-<template id="tmpl-empty">
+<template id="tmpl-none">
     <div class="empty-state">
         <span class="material-symbols-outlined" style="font-size: 4rem;">radar</span>
         <p class="font-header" style="font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">NO OPERATORS FOUND</p>
@@ -154,14 +154,14 @@
     </div>
 </template>
 
-<div id="modal-overlay" class="modal-overlay hidden">
-    <div id="modal-incoming" class="custom-modal font-header hidden">
+<div id="overlay" class="modal-overlay hidden">
+    <div id="modal-inc" class="custom-modal font-header hidden">
         <div class="modal-sys-bar">
             <div class="sys-dot"></div>
             <span>SYSTEM PRIORITY: INCOMING CHALLENGE</span>
             <span class="sys-right">PROTOCOL: MATCH_PENDING</span>
         </div>
-        <h2 id="inc-challenger-title" class="modal-title">INCOMING CHALLENGE FROM PLAYER_7</h2>
+        <h2 id="chlg-title" class="modal-title">INCOMING CHALLENGE FROM PLAYER_7</h2>
         <div class="modal-stats-grid">
             <div class="stats-card-left">
                 <div class="modal-avatar"><span id="inc-initials">??</span></div>
@@ -183,10 +183,10 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button id="btn-accept-challenge" class="btn-modal-accept">
+            <button id="btn-accept" class="btn-modal-accept">
                 <span class="material-symbols-outlined">check_circle</span> ACCEPT
             </button>
-            <button id="btn-decline-challenge" class="btn-modal-decline">
+            <button id="btn-decline" class="btn-modal-decline">
                 <span class="material-symbols-outlined">cancel</span> DECLINE
             </button>
         </div>

@@ -1,8 +1,9 @@
-let lobbySocket = null;
-let global_players = [];
+let lb_sock = null;
+let plyrs = [];
 
+// Overlay and modal handlers
 window.showModal = function(modalId) {
-    const overlay = document.getElementById('modal-overlay');
+    const overlay = document.getElementById('overlay');
     if (overlay) overlay.classList.remove('hidden');
     
     document.querySelectorAll('.custom-modal').forEach(m => m.classList.add('hidden'));
@@ -12,26 +13,22 @@ window.showModal = function(modalId) {
 };
 
 window.hideModal = function() {
-    const overlay = document.getElementById('modal-overlay');
+    const overlay = document.getElementById('overlay');
     if (overlay) overlay.classList.add('hidden');
 };
 
-window.showCustomAlert = function(title, message, isChallengeWaiting = false, targetUid = null) {
-    const overlay = document.getElementById('modal-overlay');
+// Custom alert generator
+window.showCustomAlert = function(title, msg, isWaiting = false, tgUid = null) {
+    const overlay = document.getElementById('overlay');
     if (overlay) {
-        const titleEl = document.getElementById('alert-title');
-        const msgEl = document.getElementById('alert-message');
-        if (titleEl) titleEl.innerHTML = title;
-        if (msgEl) msgEl.innerHTML = message;
+        document.getElementById('alert-title').innerHTML = title;
+        document.getElementById('alert-message').innerHTML = msg;
 
-        const dismissBtn = document.querySelector('#modal-alert .btn-modal-decline');
-        if (dismissBtn) {
-            dismissBtn.onclick = function() {
-                if (isChallengeWaiting && targetUid && lobbySocket && lobbySocket.readyState === WebSocket.OPEN) {
-                    lobbySocket.send(JSON.stringify({
-                        type: "cancel_challenge",
-                        target_uid: targetUid
-                    }));
+        const dis_btn = document.querySelector('#modal-alert .btn-modal-decline');
+        if (dis_btn) {
+            dis_btn.onclick = function() {
+                if (isWaiting && tgUid && lb_sock && lb_sock.readyState === WebSocket.OPEN) {
+                    lb_sock.send(JSON.stringify({ type: "cancel_challenge", target_uid: tgUid }));
                 }
                 window.hideModal();
             };
@@ -40,21 +37,19 @@ window.showCustomAlert = function(title, message, isChallengeWaiting = false, ta
     }
 };
 
-window.issueChallenge = function(targetUid) {
+// Send a match challenge to another user
+window.issueChallenge = function(tgUid) {
     const auth_uid = sessionStorage.getItem("arena_auth_uid");
-    if (String(targetUid) === String(auth_uid)) return;
+    if (String(tgUid) === String(auth_uid)) return;
     
-    if (lobbySocket && lobbySocket.readyState === WebSocket.OPEN) {
-        lobbySocket.send(JSON.stringify({
-            type: "challenge",
-            target_uid: String(targetUid)
-        }));
+    if (lb_sock && lb_sock.readyState === WebSocket.OPEN) {
+        lb_sock.send(JSON.stringify({ type: "challenge", target_uid: String(tgUid) }));
         
-        const target = global_players.find(p => String(p.uid) === String(targetUid));
-        const t_name = target && target.name ? target.name.toUpperCase() : `OPERATOR ${targetUid}`;
-        window.showCustomAlert("CHALLENGE DEPLOYED", `WAITING FOR ${t_name} TO RESPOND...`, true, String(targetUid));
+        const target = plyrs.find(p => String(p.uid) === String(tgUid));
+        const t_name = target && target.name ? target.name.toUpperCase() : `OPERATOR ${tgUid}`;
+        window.showCustomAlert("CHALLENGE DEPLOYED", `WAITING FOR ${t_name} TO RESPOND...`, true, String(tgUid));
     } else {
-        alert("NETWORK ERROR: Socket disconnected. Please refresh.");
+        alert("Network issue. Please refresh the page.");
     }
 };
 
@@ -63,27 +58,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth_user = sessionStorage.getItem("arena_auth_user");
     const auth_uid  = sessionStorage.getItem("arena_auth_uid");
 
+    // Redirect if no active session
     if (!auth_user || !auth_uid) {
         window.location.replace("login.html");
         return;
     }
 
-    const src_input  = document.getElementById('player-search');
-    const mob_src_input = document.getElementById('mobile-search-input');
-    const srt_sel   = document.getElementById('sort-select');
-    const ply_grid   = document.getElementById('player-grid');
-    const btn_flt_all = document.getElementById('btn-filter-all');
-    const btn_flt_gm  = document.getElementById('btn-filter-gm');
-    const sidebar      = document.getElementById('sidebar');
-    const side_tog     = document.getElementById('sidebar-toggle');
-    const mn_cnt       = document.getElementById('main-content');
-    const online_count = document.getElementById('online-count');
+    // Get UI elements
+    // Get UI elements
+    const src_in = document.getElementById('src-in');
+    const mob_src_in = document.getElementById('mob-src-in');
+    const srt_sel = document.getElementById('srt-sel');
+    const ply_grid = document.getElementById('grid');
+    const flt_all = document.getElementById('flt-all');
+    const flt_gm = document.getElementById('flt-gm');
+    const sidebar = document.getElementById('sidebar');
+    const side_tog = document.getElementById('side-tog');
+    const mn_cnt = document.getElementById('main-content');
+    const onl_cnt = document.getElementById('onl-cnt');
     
     let cur_flt = 'all';
     let is_match_running = false;
 
     prep_headers();
 
+    // Toggle sidebar
     side_tog.addEventListener('click', () => {
         if (is_match_running) {
             window.showCustomAlert("SYSTEM LOCKED", "MATCH CURRENTLY IN PROGRESS.");
@@ -97,43 +96,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    btn_flt_all.addEventListener('click', () => {
+    // Filters
+    flt_all.addEventListener('click', () => {
         cur_flt = 'all';
-        btn_flt_all.classList.add('active');
-        btn_flt_gm.classList.remove('active');
-        draw_grid();
+        flt_all.classList.add('active');
+        flt_gm.classList.remove('active');
+        render_grid();
     });
 
-    btn_flt_gm.addEventListener('click', () => {
+    flt_gm.addEventListener('click', () => {
         cur_flt = 'gm';
-        btn_flt_gm.classList.add('active');
-        btn_flt_all.classList.remove('active');
-        draw_grid();
+        flt_gm.classList.add('active');
+        flt_all.classList.remove('active');
+        render_grid();
     });
 
-    src_input.addEventListener('input', draw_grid);
-    srt_sel.addEventListener('change', draw_grid);
+    // Search and sort triggers
+    src_in.addEventListener('input', render_grid);
+    srt_sel.addEventListener('change', render_grid);
 
-    if (mob_src_input) {
-        mob_src_input.addEventListener('input', (e) => {
-            src_input.value = e.target.value;
-            draw_grid();
+    if (mob_src_in) {
+        mob_src_in.addEventListener('input', (e) => {
+            src_in.value = e.target.value;
+            render_grid();
         });
     }
 
-    // THE DISCONNECT BUTTON LOGIC
+    // Handle user logout
     document.getElementById('btn-logout').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
             await fetch('http://localhost:5001/logout', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: auth_uid }), credentials: 'include'
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: auth_uid }), 
+                credentials: 'include'
             });
         } catch (_) {}
         sessionStorage.clear();
         window.location.href = 'login.html';
     });
 
+    // Helper to get initials (e.g. John Doe -> JD)
     function get_initials(name) {
         if (!name) return "??";
         const parts = name.trim().split(/[_\s]+/);
@@ -141,17 +145,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return name.substring(0, 2).toUpperCase();
     }
 
-    function check_rank(elo) {
-        if (elo >= 3000) return { name: "GRANDMASTER",  cls: "rank-gm" };
+    // Get rank info based on elo
+    function get_rank(elo) {
+        if (elo >= 3000) return { name: "GRANDMASTER", cls: "rank-gm" };
         if (elo >= 2400) return { name: "PLATINUM", cls: "rank-platinum" };
-        if (elo >= 1800) return { name: "GOLD",       cls: "rank-gold" };
-        if (elo >= 1200) return { name: "SILVER",     cls: "rank-silver" };
+        if (elo >= 1800) return { name: "GOLD", cls: "rank-gold" };
+        if (elo >= 1200) return { name: "SILVER", cls: "rank-silver" };
         return { name: "BRONZE", cls: "rank-bronze" };
     }
 
-    function prep_headers(currentElo = null) {
-        const eloToUse = currentElo || sessionStorage.getItem("arena_auth_elo");
-        const rnks = check_rank(parseInt(eloToUse || "0"));
+    // Assign stats to dashboard header
+    function prep_headers(cur_elo = null) {
+        const eloToUse = cur_elo || sessionStorage.getItem("arena_auth_elo");
+        const rnk = get_rank(parseInt(eloToUse || "0"));
 
         document.getElementById('hdr-initials').textContent = get_initials(auth_user);
         document.getElementById('op-name').textContent = auth_user.replaceAll('_', ' ').toUpperCase();
@@ -159,39 +165,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (eloToUse) {
             document.getElementById('op-elo').textContent = `${eloToUse} ELO`;
             document.getElementById('hdr-elo').textContent = `${eloToUse} ELO`;
-            document.getElementById('hdr-rank').textContent = rnks.name;
+            document.getElementById('hdr-rank').textContent = rnk.name;
             sessionStorage.setItem("arena_auth_elo", eloToUse);
         }
     }
 
-    function ping_data() {
-        const cacheBuster = Date.now();
-        fetch(`http://localhost:5001/api/players?t=${cacheBuster}`, { credentials: 'include', cache: 'no-store' })
+    // Fetch players globally
+    function fetch_data() {
+        fetch(`http://localhost:5001/api/players?t=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
             .then(res => res.json())
             .then(dt => {
-                global_players = dt.players || [];
-                const me = global_players.find(p => String(p.uid) === String(auth_uid));
+                plyrs = dt.players || [];
+                const me = plyrs.find(p => String(p.uid) === String(auth_uid));
                 if (me) prep_headers(me.elo_rating); 
-                draw_grid();
+                render_grid();
             })
-            .catch(er => console.warn("API unavailable:", er));
+            .catch(er => console.warn("API offline:", er));
     }
 
-    function draw_grid() {
-        const qry = src_input.value.toLowerCase();
+    // Draw the main player grid
+    function render_grid() {
+        const qry = src_in.value.toLowerCase();
         const tmpl = document.getElementById('tmpl-card');
 
-        let rslt = global_players.filter(p => p.name.toLowerCase().includes(qry));
+        let rslt = plyrs.filter(p => p.name.toLowerCase().includes(qry));
         if (cur_flt === 'gm') rslt = rslt.filter(p => p.elo_rating >= 2800);
 
-        if (online_count) {
-            const live = global_players.filter(p => p.status === 'online' || p.status === 'fighting').length;
-            online_count.textContent = `${live} ONLINE`;
+        if (onl_cnt) {
+            const live = plyrs.filter(p => p.status === 'online' || p.status === 'fighting').length;
+            onl_cnt.textContent = `${live} ONLINE`;
         }
 
         const wt = { "online": 1, "fighting": 2, "offline": 3 };
         const srt_md = srt_sel.value;
         
+        // Sort players based on status & selection
         rslt.sort((a, b) => {
             const is_me_a = (String(a.uid) === String(auth_uid));
             const is_me_b = (String(b.uid) === String(auth_uid));
@@ -213,15 +221,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ply_grid.innerHTML = '';
         if (rslt.length === 0) {
-            const et = document.getElementById('tmpl-empty');
-            ply_grid.appendChild(et.content.cloneNode(true));
+            const empty_tmpl = document.getElementById('tmpl-none');
+            ply_grid.appendChild(empty_tmpl.content.cloneNode(true));
             return;
         }
 
         rslt.forEach(p => {
             const cln = tmpl.content.cloneNode(true);
             const card_wrap = cln.querySelector('.player-card');
-            const p_rnk = check_rank(p.elo_rating);
+            const p_rnk = get_rank(p.elo_rating);
             const is_me = (String(p.uid) === String(auth_uid));
 
             cln.querySelector('.js-initials').textContent = get_initials(p.name);
@@ -275,100 +283,80 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ==========================================
-    // AUTO-RECONNECTING WEBSOCKET
-    // ==========================================
-    function connectLobbySocket() {
-        lobbySocket = new WebSocket(`ws://localhost:5001/ws/lobby/${auth_uid}`);
+    // Set up auto-reconnecting websocket
+    function prep_socket() {
+        lb_sock = new WebSocket(`ws://localhost:5001/ws/lobby/${auth_uid}`);
 
-        lobbySocket.onopen = () => {
-            console.log("Live lobby connected.");
-            ping_data(); 
+        lb_sock.onopen = () => {
+            console.log("Connected to game lobby");
+            fetch_data(); 
         };
 
-        lobbySocket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        lb_sock.onmessage = (e) => {
+            const dt = JSON.parse(e.data);
 
-            if (data.type === "presence" || data.type === "game_over") {
-                ping_data(); 
+            if (dt.type === "presence" || dt.type === "game_over") {
+                fetch_data(); 
             }
 
-            if (data.type === "challenge_received") {
-                const overlay = document.getElementById('modal-overlay');
-                const challenger = global_players.find(p => String(p.uid) === String(data.from_uid));
-                const c_name = challenger ? challenger.name.toUpperCase() : `OPERATOR ${data.from_uid}`;
-                const c_elo = challenger ? challenger.elo_rating : "???";
-                const c_wr = challenger ? challenger.winrate : "???";
+            if (dt.type === "challenge_received") {
+                const overlay = document.getElementById('overlay');
+                const chlg = plyrs.find(p => String(p.uid) === String(dt.from_uid));
+                const c_name = chlg ? chlg.name.toUpperCase() : `OPERATOR ${dt.from_uid}`;
+                const c_elo = chlg ? chlg.elo_rating : "???";
+                const c_wr = chlg ? chlg.winrate : "???";
 
                 if (overlay) {
-                    const titleEl = document.getElementById('inc-challenger-title');
-                    if (titleEl) titleEl.textContent = `INCOMING CHALLENGE FROM ${c_name}`;
-                    const nEl = document.getElementById('inc-name');
-                    if (nEl) nEl.textContent = c_name;
-                    const eloEl = document.getElementById('inc-elo');
-                    if (eloEl) eloEl.textContent = `${c_elo} ELO`;
-                    const wrEl = document.getElementById('inc-wr');
-                    if (wrEl) wrEl.textContent = `${c_wr}%`;
-                    const initEl = document.getElementById('inc-initials');
-                    if (initEl) initEl.textContent = get_initials(c_name);
+                    document.getElementById('chlg-title').textContent = `INCOMING CHALLENGE FROM ${c_name}`;
+                    document.getElementById('inc-name').textContent = c_name;
+                    document.getElementById('inc-elo').textContent = `${c_elo} ELO`;
+                    document.getElementById('inc-wr').textContent = `${c_wr}%`;
+                    document.getElementById('inc-initials').textContent = get_initials(c_name);
                     
-                    window.showModal('modal-incoming');
+                    window.showModal('modal-inc');
 
-                    document.getElementById('btn-accept-challenge').onclick = () => {
-                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: true }));
+                    document.getElementById('btn-accept').onclick = () => {
+                        lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: true }));
                         window.showCustomAlert("SYSTEM UPDATE", "MATCH ACCEPTED.<br>STANDBY FOR ARENA ROUTING...");
                     };
                     
-                    document.getElementById('btn-decline-challenge').onclick = () => {
-                        lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: false }));
+                    document.getElementById('btn-decline').onclick = () => {
+                        lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: false }));
                         window.hideModal();
                     };
                 } else {
-                    const accept = confirm(`INCOMING CHALLENGE FROM ${c_name}!\n\nAccept match?`);
-                    lobbySocket.send(JSON.stringify({ type: "challenge_response", from_uid: data.from_uid, accepted: accept }));
+                    const accept = confirm(`Incoming match from ${c_name}!\n\nAccept?`);
+                    lb_sock.send(JSON.stringify({ type: "challenge_response", from_uid: dt.from_uid, accepted: accept }));
                 }
             }
 
-            if (data.type === "challenge_declined") {
-                const titleEl = document.getElementById('alert-title');
-                const msgEl = document.getElementById('alert-message');
-                if (titleEl && msgEl) {
-                    titleEl.innerHTML = "CHALLENGE DECLINED";
-                    msgEl.innerHTML = "THE TARGET OPERATOR REJECTED YOUR MATCH.";
-                }
+            if (dt.type === "challenge_declined") {
+                window.showCustomAlert("CHALLENGE DECLINED", "THE TARGET OPERATOR REJECTED YOUR MATCH.");
                 setTimeout(() => window.hideModal(), 4000);
             }
 
-            if (data.type === "challenge_cancelled") {
-                window.hideModal();
-            }
-
-            if (data.type === "match_start") {
-                window.location.href = `match_arena.html?room=${data.room_id}&symbol=${data.symbol}`;
-            }
+            if (dt.type === "challenge_cancelled") window.hideModal();
+            if (dt.type === "match_start") window.location.href = `match_arena.html?room=${dt.room_id}&symbol=${dt.symbol}`;
         };
 
-        lobbySocket.onclose = () => {
-            console.warn("Lobby socket dropped. Reconnecting in 2 seconds...");
-            setTimeout(connectLobbySocket, 2000);
+        // Try to reconnect if dropped
+        lb_sock.onclose = () => {
+            console.warn("Connection lost. Reconnecting...");
+            setTimeout(prep_socket, 2000);
         };
     }
 
-    // INITIALIZATION
-    ping_data();
-    connectLobbySocket();
+    // First load
+    fetch_data();
+    prep_socket();
     
-    // FALLBACK: Force sync every 5 seconds so background tabs never desync the grid
-    setInterval(ping_data, 5000);
+    // Refresh periodically if hidden
+    setInterval(fetch_data, 5000);
 
-    // =================================================================================
-    // THE INSTANT WAKE-UP FIX: Bypasses browser tab sleeping to guarantee perfect sync
-    // =================================================================================
+    // Refresh immediately on focus
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") {
-            ping_data();
-        }
+        if (document.visibilityState === "visible") fetch_data();
     });
-    window.addEventListener("focus", ping_data);
+    window.addEventListener("focus", fetch_data);
 
 });

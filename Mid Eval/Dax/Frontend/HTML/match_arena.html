@@ -13,9 +13,9 @@
 </head>
 <body>
 
-<div id="toast-container" class="toast-container hidden">
+<div id="toast-cnt" class="toast-container hidden">
     <span class="material-symbols-outlined">warning</span>
-    <span id="toast-message" class="font-header">ACCESS DENIED: NOT YOUR TURN</span>
+    <span id="toast-msg" class="font-header">ACCESS DENIED: NOT YOUR TURN</span>
 </div>
 
 <header class="top-nav">
@@ -51,7 +51,7 @@
                 <div class="player-stats">
                     <div class="stat-box">
                         <span class="stat-lbl font-header">Win Rate</span>
-                        <span class="stat-val font-header" id="my-winrate">--%</span>
+                        <span class="stat-val font-header" id="my-wr">--%</span>
                     </div>
                     <div class="stat-box">
                         <span class="stat-lbl font-header">Streak</span>
@@ -65,15 +65,15 @@
                     <span class="font-header text-xs">TECHNICAL LOGS</span>
                     <span class="material-symbols-outlined text-sm">monitoring</span>
                 </div>
-                <div class="log-body font-mono" id="combat-log-body">
+                <div class="log-body font-mono" id="log-body">
                 </div>
             </div>
         </div>
 
         <div class="board-col">
-            <div class="turn-indicator" id="turn-indicator">
+            <div class="turn-indicator" id="turn-ind">
                 <div class="turn-dot" id="turn-dot"></div>
-                <span class="font-header" id="turn-text">CONNECTING...</span>
+                <span class="font-header" id="turn-txt">CONNECTING...</span>
             </div>
 
             <div class="game-board" id="game-board">
@@ -92,7 +92,7 @@
             </div>
 
             <div class="action-buttons">
-                <button id="btn-offer-draw" class="btn-secondary font-header">DRAW OFFER</button>
+                <button id="btn-draw" class="btn-secondary font-header">DRAW OFFER</button>
                 <button id="btn-resign" class="btn-danger font-header">RESIGN MATCH</button>
             </div>
         </div>
@@ -112,7 +112,7 @@
                 <div class="player-stats">
                     <div class="stat-box">
                         <span class="stat-lbl font-header">Win Rate</span>
-                        <span class="stat-val font-header" id="opp-winrate">--%</span>
+                        <span class="stat-val font-header" id="opp-wr">--%</span>
                     </div>
                     <div class="stat-box">
                         <span class="stat-lbl font-header">Region</span>
@@ -130,20 +130,20 @@
                     <div class="analytics-row mb-4">
                         <div class="flex-between">
                             <span class="font-header text-xs text-muted">Match Duration</span>
-                            <span class="font-mono text-primary text-sm font-bold" id="live-duration">00:00</span>
+                            <span class="font-mono text-primary text-sm font-bold" id="live-dur">00:00</span>
                         </div>
                     </div>
                     <div class="analytics-row mt-4">
                         <div class="flex-between">
                             <span class="font-header text-xs text-muted">Moves Executed</span>
-                            <span class="font-mono text-xs font-bold" id="live-moves-text">0 / 9</span>
+                            <span class="font-mono text-xs font-bold" id="live-moves-txt">0 / 9</span>
                         </div>
                         <div class="bar-bg"><div class="bar-fill bg-muted" id="live-moves-bar" style="width: 0%;"></div></div>
                     </div>
                 </div>
                 <div class="latency-footer flex-between border-top-muted pt-3 mt-3">
                     <span class="font-header text-[10px] text-muted">AVG RESPONSE TIME</span>
-                    <span class="font-mono text-[10px] text-secondary" id="live-response-time">0.0s</span>
+                    <span class="font-mono text-[10px] text-secondary" id="live-resp">0.0s</span>
                 </div>
             </div>
         </div>
@@ -151,7 +151,7 @@
     </div>
 </main>
 
-<div id="match-result-overlay" class="result-overlay hidden theme-victory">
+<div id="result-overlay" class="result-overlay hidden theme-victory">
     <div class="result-backdrop">
         <div class="orb orb-top"></div>
         <div class="orb orb-bottom"></div>
@@ -161,10 +161,10 @@
         <div class="result-header">
             <div class="status-pill font-mono">
                 <span class="pill-dot"></span>
-                <span id="result-system-text">System_Link_Stable</span>
+                <span id="res-sys-txt">System_Link_Stable</span>
             </div>
-            <h1 id="result-title" class="font-header result-title-text">VICTORY</h1>
-            <p id="result-subtitle" class="font-mono result-subtitle-text">Opponent Neutralized // Arena Dominance Confirmed</p>
+            <h1 id="res-title" class="font-header result-title-text">VICTORY</h1>
+            <p id="res-subtitle" class="font-mono result-subtitle-text">Opponent Neutralized // Arena Dominance Confirmed</p>
         </div>
         <div class="result-bento">
             <div class="bento-card elo-card group">
@@ -190,14 +190,14 @@
                 <div class="bento-card stat-card border-primary">
                     <div>
                         <p class="font-mono stat-sm">Total Moves</p>
-                        <p id="res-total-moves" class="font-header stat-lg">--</p>
+                        <p id="res-moves" class="font-header stat-lg">--</p>
                     </div>
                     <span class="material-symbols-outlined icon-muted">gesture</span>
                 </div>
                 <div class="bento-card stat-card border-theme">
                     <div>
                         <p class="font-mono stat-sm">Time Elapsed</p>
-                        <p id="res-time-elapsed" class="font-header stat-lg">--:--</p>
+                        <p id="res-time" class="font-header stat-lg">--:--</p>
                     </div>
                     <span class="material-symbols-outlined icon-muted">timer</span>
                 </div>
@@ -213,7 +213,7 @@
                 <div class="logs-card-header">
                     <span class="font-mono text-primary font-bold">Match_Execution_Logs (Latest-3)</span>
                 </div>
-                <div class="logs-card-body font-mono" id="res-final-logs"></div>
+                <div class="logs-card-body font-mono" id="res-logs"></div>
             </div>
         </div>
         <div class="result-actions">
@@ -221,11 +221,11 @@
                 <span class="font-header">REMATCH</span>
                 <span class="material-symbols-outlined">replay</span>
             </button>
-            <button id="btn-return-lobby" class="btn-action btn-outline active-bounce">
+            <button id="btn-lobby" class="btn-action btn-outline active-bounce">
                 <span class="font-header">RETURN TO LOBBY</span>
                 <span class="material-symbols-outlined">home</span>
             </button>
-            <button id="btn-view-leaderboard" class="btn-action btn-ghost active-bounce">
+            <button id="btn-ldb" class="btn-action btn-ghost active-bounce">
                 <span class="font-header">VIEW LEADERBOARD</span>
                 <span class="material-symbols-outlined text-secondary">leaderboard</span>
             </button>

@@ -1,4 +1,4 @@
-/* 1. config root vars */
+/* Root setup */
 :root {
     --color-surface-dim: #131313;
     --color-surface-lowest: #0e0e0e;
@@ -21,7 +21,7 @@
     --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* 2. normalise defaults */
+/* Reset defaults */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -57,12 +57,12 @@ button {
     display: none !important;
 }
 
-/* 3. texts */
+/* Typography */
 .font-header { font-family: var(--font-header); }
 .font-body { font-family: var(--font-body); }
 .font-mono { font-family: var(--font-mono); }
 
-/* 4. icon pack overrides */
+/* Icon setup */
 .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     font-size: 24px;
@@ -72,7 +72,7 @@ button {
     user-select: none;
 }
 
-/* 5. top nav bar */
+/* Navbar */
 #site-header {
     position: absolute;
     top: 0;
@@ -143,7 +143,7 @@ button {
     color: var(--color-primary);
 }
 
-/* 6. page layout wrappers */
+/* Layout wrappers */
 #main-container {
     position: relative;
     min-height: 100vh;
@@ -199,7 +199,7 @@ button {
     #slanted-bg { width: 40%; left: -10%; }
 }
 
-/* 7. central element structures */
+/* Main card layout */
 #center-card {
     position: relative;
     z-index: 10;
@@ -249,8 +249,8 @@ button {
     white-space: nowrap;
 }
 
-/* 8. camera view sizing */
-#cam-view {
+/* Webcam box */
+#cam-box {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -261,14 +261,14 @@ button {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255,255,255,0.03);
 }
 
-#cam-container {
+#cam-cont {
     position: absolute;
     inset: 0;
     z-index: 0;
 }
 
 #webcam,
-#captured-frame {
+#cap-frm {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -287,7 +287,7 @@ button {
 }
 
 
-/* 9. layout for interactive controls */
+/* Actions */
 #controls {
     margin-top: 3rem;
     width: 100%;
@@ -297,7 +297,7 @@ button {
     gap: 2rem;
 }
 
-#status-ind {
+#sts-ind {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -319,7 +319,7 @@ button {
     text-transform: uppercase;
 }
 
-/* big scan logic */
+/* Scan button */
 #scan-btn {
     position: relative;
     overflow: hidden;
@@ -358,7 +358,7 @@ button {
     font-size: 1.5rem;
 }
 
-#btn-text {
+#btn-txt {
     font-family: var(--font-header);
     font-weight: 900;
     font-size: 1.25rem;
@@ -367,8 +367,8 @@ button {
     color: var(--color-on-pri-fixed);
 }
 
-/* bottom protocol badge */
-#auth-badge-wrap {
+/* Auth badge */
+#badge-wrap {
     margin-top: 1rem;
     display: flex;
     justify-content: center;
@@ -398,7 +398,7 @@ button {
     font-weight: 500;
 }
 
-/* 10. cosmetic text labels sticking to the sides */
+/* Side decor labels */
 .side-lbl {
     display: none;
     position: fixed;
@@ -433,7 +433,7 @@ button {
     margin: 0 auto;
 }
 
-/* 11. state triggers modified by js */
+/* Dynamic JS states */
 .status-ok {
     color: var(--color-secondary) !important;
 }
@@ -442,9 +442,9 @@ button {
     color: var(--color-error) !important;
 }
 
-/* standard screen checks */
+/* Media queries */
 @media (min-width: 768px) {
-    #cam-view { aspect-ratio: 16 / 10; }
+    #cam-box { aspect-ratio: 16 / 10; }
     .arena-heading { font-size: 6rem; }
     .header-status { display: flex; }
 }

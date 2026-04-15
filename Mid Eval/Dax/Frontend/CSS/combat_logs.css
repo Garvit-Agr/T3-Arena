@@ -1,4 +1,4 @@
-/* root color palette mappings */
+/* Colors */
 :root {
     --color-surface-dim: #131313;
     --color-surface-highest: #353534;
@@ -120,7 +120,7 @@ button, select, input { font-family: inherit; }
 .logs-title { display: flex; align-items: center; gap: 0.5rem; }
 .subtitle-text { font-size: 0.875rem; font-weight: 700; color: var(--color-on-surface); letter-spacing: 0.1em; }
 
-/* Filter Buttons */
+/* Filters */
 .logs-filters { display: flex; gap: 0.5rem; }
 .filter-btn {
     background-color: var(--color-surface); color: var(--color-on-surface-var); border: 1px solid rgba(66, 71, 84, 0.2);
@@ -165,7 +165,7 @@ button, select, input { font-family: inherit; }
 .is-loss .score-number { color: var(--color-danger); }
 .card-uid { font-size: 0.625rem; color: var(--color-on-surface-var); letter-spacing: 0.1em; opacity: 0.6;}
 
-/* Pagination Styles (Same as Leaderboard) */
+/* Pagination */
 .pagination-bar {
     display: flex; flex-direction: column; justify-content: space-between; align-items: center;
     padding: 1rem 1.5rem; background: var(--color-surface-low); border-radius: 0.5rem;

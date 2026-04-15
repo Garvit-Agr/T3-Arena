@@ -1,93 +1,83 @@
-// match_arena.js
-
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. Auth Guard (Lockdown mode)
-    const loggedInUser = sessionStorage.getItem("arena_auth_user");
-    const loggedInUid  = sessionStorage.getItem("arena_auth_uid");
+    const auth_user = sessionStorage.getItem("arena_auth_user");
+    const auth_uid  = sessionStorage.getItem("arena_auth_uid");
 
-    if (!loggedInUser || !loggedInUid) {
+    if (!auth_user || !auth_uid) {
         window.location.replace("login.html");
         return; 
     }
 
-    // Extract URL Params for WebSocket
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = urlParams.get('room');
-    const mySymbol = urlParams.get('symbol'); // "X" or "O"
+    // Pull room + symbol from URL
+    const params = new URLSearchParams(window.location.search);
+    const room_id = params.get('room');
+    const my_sym = params.get('symbol');
 
-    if (!roomId || !mySymbol) {
+    if (!room_id || !my_sym) {
         alert("Invalid match routing. Returning to lobby.");
         window.location.href = "lobby_command_center.html";
         return;
     }
 
-    // Set User Profile Data Locally
-    const storedElo = parseInt(sessionStorage.getItem("arena_auth_elo") || "1450");
-    const safeUser = loggedInUser || "OPERATOR_01";
-    document.querySelector('.js-my-name').innerText = safeUser.replaceAll('_', ' ').toUpperCase();
-    document.querySelector('.js-my-elo').innerHTML = `${storedElo.toLocaleString()} <span class="elo-label">ELO</span>`;
+    const stored_elo = parseInt(sessionStorage.getItem("arena_auth_elo") || "1450");
+    const safe_user = auth_user || "OPERATOR_01";
+    document.querySelector('.js-my-name').innerText = safe_user.replaceAll('_', ' ').toUpperCase();
+    document.querySelector('.js-my-elo').innerHTML = `${stored_elo.toLocaleString()} <span class="elo-label">ELO</span>`;
     
-    function getInitials(name) {
+    function get_initials(name) {
         if (!name) return "??";
         const parts = name.trim().split(/[_\s]+/);
         if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         return name.substring(0, 2).toUpperCase();
     }
 
-    const myInitials = getInitials(safeUser);
-    document.querySelector('.js-my-initials').innerText = myInitials;
-    document.getElementById('hdr-initials').innerText = myInitials;
-    document.getElementById('hdr-elo').innerText = `${storedElo.toLocaleString()} ELO`;
+    const my_inits = get_initials(safe_user);
+    document.querySelector('.js-my-initials').innerText = my_inits;
+    document.getElementById('hdr-initials').innerText = my_inits;
+    document.getElementById('hdr-elo').innerText = `${stored_elo.toLocaleString()} ELO`;
 
-    // 2. DOM Elements
+    // DOM refs
     const cells = document.querySelectorAll('.cell');
-    const toast = document.getElementById('toast-container');
-    const turnIndicator = document.getElementById('turn-indicator');
-    const turnText = document.getElementById('turn-text');
-    const combatLogBody = document.getElementById('combat-log-body');
+    const toast = document.getElementById('toast-cnt');
+    const turn_ind = document.getElementById('turn-ind');
+    const turn_txt = document.getElementById('turn-txt');
+    const log_body = document.getElementById('log-body');
     
-    const liveDurationEl = document.getElementById('live-duration');
-    const liveMovesText = document.getElementById('live-moves-text');
-    const liveMovesBar = document.getElementById('live-moves-bar');
-    const liveResponseTime = document.getElementById('live-response-time');
+    const live_dur = document.getElementById('live-dur');
+    const live_moves_txt = document.getElementById('live-moves-txt');
+    const live_moves_bar = document.getElementById('live-moves-bar');
+    const live_resp = document.getElementById('live-resp');
 
-    // 3. Match State
-    let isMyTurn = false; 
-    let gameActive = true;
-    let boardState = ["", "", "", "", "", "", "", "", ""]; 
+    // Match state
+    let is_my_turn = false; 
+    let game_on = true;
+    let board = ["", "", "", "", "", "", "", "", ""]; 
     
-    let moveCount = 0;
-    let matchStartTime = Date.now();
-    let lastTurnTime = Date.now();
-    let totalThinkTime = 0;
-    let timerInterval;
+    let move_cnt = 0;
+    let match_start = Date.now();
+    let last_turn = Date.now();
+    let total_think = 0;
+    let timer_iv;
 
-    // -------------------------------------------------------------
-    // MODAL LOGIC FOR RESIGNATION
-    // -------------------------------------------------------------
-    function showModal(id) {
-        document.getElementById('modal-overlay').classList.remove('hidden');
+    // Resignation modal
+    function show_modal(id) {
+        document.getElementById('overlay').classList.remove('hidden');
         document.querySelectorAll('.custom-modal').forEach(m => m.classList.add('hidden'));
         document.getElementById(id).classList.remove('hidden');
     }
 
-    function hideModal() {
-        document.getElementById('modal-overlay').classList.add('hidden');
+    function hide_modal() {
+        document.getElementById('overlay').classList.add('hidden');
     }
 
-    // -------------------------------------------------------------
-    // BACKEND: MATCH INITIALIZATION 
-    // -------------------------------------------------------------
-    async function initializeMatch() {
+    // Fetch opponent data from backend
+    async function init_match() {
         try {
-            // FIX: Dynamic API Base to support both Localhost and Ngrok
-            const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
                 ? 'http://localhost:5001' 
                 : window.location.origin;
 
-            // FIX: Added explicit Ngrok bypass headers so the data isn't blocked
-            let response = await fetch(`${apiBase}/api/match_init/${roomId}/${loggedInUid}`, {
+            let res = await fetch(`${api}/api/match_init/${room_id}/${auth_uid}`, {
                 method: 'GET',
                 headers: {
                     'ngrok-skip-browser-warning': 'true',
@@ -96,271 +86,237 @@ document.addEventListener('DOMContentLoaded', () => {
                 credentials: 'include'
             });
             
-            // SECURITY CHECK: Throw an error if the route 404s
-            if (!response.ok) throw new Error("Match initialization failed."); 
-            
-            let data = await response.json();
-            
-            // SECURITY CHECK: Throw an error if the server sent a handled exception
+            if (!res.ok) throw new Error("Match init failed."); 
+            let data = await res.json();
             if (data.error) throw new Error(data.error); 
 
-            // Populate real opponent data
             document.getElementById('opp-name').innerText = data.opponent_name;
             document.getElementById('opp-elo').innerText = data.opponent_elo;
-            document.getElementById('opp-initials').innerText = getInitials(data.opponent_name);
-            document.getElementById('opp-winrate').innerText = data.opponent_winrate + '%';
+            document.getElementById('opp-initials').innerText = get_initials(data.opponent_name);
+            document.getElementById('opp-wr').innerText = data.opponent_winrate + '%';
             document.getElementById('opp-region').innerText = data.opponent_region;
             
-            document.getElementById('my-winrate').innerText = data.my_winrate + '%';
+            document.getElementById('my-wr').innerText = data.my_winrate + '%';
             document.getElementById('my-streak').innerText = data.my_streak;
             
         } catch(e) {
-            // By catching the error properly, the UI will retain the default "AWAITING..." text
-            console.warn("Backend not connected for init. Waiting for server...", e);
+            console.warn("Backend not available for init:", e);
         }
     }
-    initializeMatch();
+    init_match();
 
-    // --- LIVE MATCH DURATION TIMER ---
-    function updateMatchDuration() {
-        if (!gameActive) return;
-        const elapsed = Math.floor((Date.now() - matchStartTime) / 1000);
+    // Live match timer
+    function update_timer() {
+        if (!game_on) return;
+        const elapsed = Math.floor((Date.now() - match_start) / 1000);
         const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
         const secs = String(elapsed % 60).padStart(2, '0');
-        liveDurationEl.innerText = `${mins}:${secs}`;
+        live_dur.innerText = `${mins}:${secs}`;
     }
-    timerInterval = setInterval(updateMatchDuration, 1000);
+    timer_iv = setInterval(update_timer, 1000);
 
-    function addLog(text) {
+    function add_log(text) {
         const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" });
-        const logLine = document.createElement('div');
-        logLine.className = 'log-line';
-        logLine.innerHTML = `<span class="log-time">${time}</span> <span class="log-text">${text}</span>`;
-        combatLogBody.appendChild(logLine);
-        combatLogBody.scrollTop = combatLogBody.scrollHeight; 
+        const ln = document.createElement('div');
+        ln.className = 'log-line';
+        ln.innerHTML = `<span class="log-time">${time}</span> <span class="log-text">${text}</span>`;
+        log_body.appendChild(ln);
+        log_body.scrollTop = log_body.scrollHeight; 
     }
     
-    addLog("SYSTEM: Handshake complete.");
-    addLog("ARENA: Awaiting server synchronization.");
+    add_log("SYSTEM: Handshake complete.");
+    add_log("ARENA: Awaiting server synchronization.");
 
-    function showToast(message = "ACCESS DENIED: NOT YOUR TURN") {
-        document.getElementById('toast-message').innerText = message;
+    function show_toast(msg = "ACCESS DENIED: NOT YOUR TURN") {
+        document.getElementById('toast-msg').innerText = msg;
         toast.classList.remove('hidden');
         setTimeout(() => { toast.classList.add('hidden'); }, 2500); 
     }
 
-    function setTurnUI(myTurn) {
-        isMyTurn = myTurn;
+    function set_turn(myTurn) {
+        is_my_turn = myTurn;
         if (myTurn) {
-            turnIndicator.classList.remove('opponent-turn');
-            turnText.innerText = "YOUR TURN";
+            turn_ind.classList.remove('opponent-turn');
+            turn_txt.innerText = "YOUR TURN";
         } else {
-            turnIndicator.classList.add('opponent-turn');
-            turnText.innerText = "OPPONENT COMPUTING...";
+            turn_ind.classList.add('opponent-turn');
+            turn_txt.innerText = "OPPONENT COMPUTING...";
         }
     }
 
-    function updateLiveAnalytics() {
-        moveCount++;
-        liveMovesText.innerText = `${moveCount} / 9`;
-        const percentage = (moveCount / 9) * 100;
-        liveMovesBar.style.width = `${percentage}%`;
+    function update_analytics() {
+        move_cnt++;
+        live_moves_txt.innerText = `${move_cnt} / 9`;
+        live_moves_bar.style.width = `${(move_cnt / 9) * 100}%`;
 
-        const timeTakenForThisMove = (Date.now() - lastTurnTime) / 1000;
-        totalThinkTime += timeTakenForThisMove;
-        const avgResponse = (totalThinkTime / moveCount).toFixed(1);
-        liveResponseTime.innerText = `${avgResponse}s`;
+        const think_time = (Date.now() - last_turn) / 1000;
+        total_think += think_time;
+        live_resp.innerText = `${(total_think / move_cnt).toFixed(1)}s`;
 
-        lastTurnTime = Date.now();
+        last_turn = Date.now();
     }
 
-    // =========================================================================
-    // WEBSOCKET INTEGRATION
-    // =========================================================================
-    // FIX: Dynamic WebSocket routing for both Ngrok and Localhost
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    // Websocket connection
+    const ws_proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws_host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
         ? 'localhost:5001' 
         : window.location.host;
 
-    const gameSocket = new WebSocket(`${wsProtocol}//${wsHost}/ws/game/${roomId}/${loggedInUid}`);
+    const gs = new WebSocket(`${ws_proto}//${ws_host}/ws/game/${room_id}/${auth_uid}`);
 
-    gameSocket.onopen = () => {
-        addLog("ARENA: Server synchronization established.");
-    };
+    gs.onopen = () => { add_log("ARENA: Server synchronization established."); };
 
-    gameSocket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+    gs.onmessage = (e) => {
+        const dt = JSON.parse(e.data);
 
-        // 1. Board updates and turn toggling
-        if (data.type === "board_state" || data.type === "board_update") {
-            updateBoardFromBackend(data.board);
-            setTurnUI(data.turn === mySymbol);
+        if (dt.type === "board_state" || dt.type === "board_update") {
+            sync_board(dt.board);
+            set_turn(dt.turn === my_sym);
             
-            if (data.last_move) {
-                const mover = data.last_move.uid === loggedInUid ? "YOU" : "OPPONENT";
-                const sector = (data.last_move.row * 3) + data.last_move.col;
-                addLog(`Move: ${mover} -> Sector [${sector}]`);
+            if (dt.last_move) {
+                const who = dt.last_move.uid === auth_uid ? "YOU" : "OPPONENT";
+                const sector = (dt.last_move.row * 3) + dt.last_move.col;
+                add_log(`Move: ${who} -> Sector [${sector}]`);
             }
         }
 
-        // 2. Reject Invalid Moves
-        if (data.type === "move_rejected") {
-            showToast(data.reason.toUpperCase());
+        if (dt.type === "move_rejected") {
+            show_toast(dt.reason.toUpperCase());
         }
 
-        // 3. Match Complete
-        if (data.type === "game_over") {
-            showEndScreen(data);
+        if (dt.type === "game_over") {
+            show_end(dt);
         }
     };
 
-    gameSocket.onclose = () => {
-        if (gameActive) addLog("SYSTEM ERROR: Connection to Arena lost.");
+    gs.onclose = () => {
+        if (game_on) add_log("SYSTEM ERROR: Connection to Arena lost.");
     };
 
-    function updateBoardFromBackend(backendBoard) {
-        let newMoves = 0;
-        for (let row = 0; row < 3; row++) {
-            for (let col = 0; col < 3; col++) {
-                const index = (row * 3) + col;
-                const mark = backendBoard[row][col];
+    // Apply backend board state to UI
+    function sync_board(backend) {
+        let new_moves = 0;
+        for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 3; c++) {
+                const idx = (r * 3) + c;
+                const mark = backend[r][c];
                 
-                if (mark !== "") newMoves++;
+                if (mark !== "") new_moves++;
 
-                if (boardState[index] !== mark) {
-                    boardState[index] = mark;
-                    const cellEl = cells[index];
+                if (board[idx] !== mark) {
+                    board[idx] = mark;
+                    const el = cells[idx];
                     if (mark === "X") {
-                        cellEl.innerHTML = `<span class="material-symbols-outlined mark-x">close</span>`;
+                        el.innerHTML = `<span class="material-symbols-outlined mark-x">close</span>`;
                     } else if (mark === "O") {
-                        cellEl.innerHTML = `<span class="material-symbols-outlined mark-o">radio_button_unchecked</span>`;
+                        el.innerHTML = `<span class="material-symbols-outlined mark-o">radio_button_unchecked</span>`;
                     }
                 }
             }
         }
         
-        if (newMoves > moveCount) {
-            updateLiveAnalytics();
-        }
+        if (new_moves > move_cnt) update_analytics();
     }
 
-    // -------------------------------------------------------------
-    // SENDING MOVES TO WEBSOCKET
-    // -------------------------------------------------------------
+    // Send move over websocket
     cells.forEach(cell => {
         cell.addEventListener('click', (e) => {
-            if (!gameActive) return;
-            const index = parseInt(e.currentTarget.getAttribute('data-index'));
+            if (!game_on) return;
+            const idx = parseInt(e.currentTarget.getAttribute('data-index'));
 
-            if (boardState[index] !== "") return;
-            if (!isMyTurn) { showToast("ACCESS DENIED: NOT YOUR TURN"); return; }
+            if (board[idx] !== "") return;
+            if (!is_my_turn) { show_toast("ACCESS DENIED: NOT YOUR TURN"); return; }
 
-            const row = Math.floor(index / 3);
-            const col = index % 3;
-
-            gameSocket.send(JSON.stringify({
+            gs.send(JSON.stringify({
                 type: "move",
-                row: row,
-                col: col
+                row: Math.floor(idx / 3),
+                col: idx % 3
             }));
         });
     });
 
-    // =========================================================================
-    // END OF MATCH LOGIC 
-    // =========================================================================
-
-    const overlay = document.getElementById('match-result-overlay');
+    // End screen
+    const res_overlay = document.getElementById('res-overlay');
     
-    function showEndScreen(matchData) {
-        if (!gameActive) return; 
-        gameActive = false; 
-        clearInterval(timerInterval); 
+    function show_end(match_dt) {
+        if (!game_on) return; 
+        game_on = false; 
+        clearInterval(timer_iv); 
 
-        let resultType = "draw";
-        if (matchData.winner === mySymbol) resultType = "victory";
-        else if (matchData.winner && matchData.winner !== "DRAW") resultType = "defeat";
+        let result = "draw";
+        if (match_dt.winner === my_sym) result = "victory";
+        else if (match_dt.winner && match_dt.winner !== "DRAW") result = "defeat";
 
-        const prevElo = storedElo;
-        const currentElo = matchData.new_ratings[loggedInUid];
-        const eloChange = currentElo - prevElo;
-        const totalMoves = moveCount;
-        const timeElapsed = liveDurationEl.innerText;
-        const reasonText = matchData.forfeit ? "Opponent Forfeited // Arena Dominance Confirmed" : "Match Concluded by Server.";
+        const prev_elo = stored_elo;
+        const cur_elo = match_dt.new_ratings[auth_uid];
+        const elo_chg = cur_elo - prev_elo;
+        const total_moves = move_cnt;
+        const time_str = live_dur.innerText;
+        const reason = match_dt.forfeit ? "Opponent Forfeited // Arena Dominance Confirmed" : "Match Concluded by Server.";
 
-        let title, systemText, desc, classTheme;
+        let title, sys_txt, desc, cls_theme;
         
-        if (resultType === 'victory') {
-            classTheme = 'theme-victory';
-            title = matchData.forfeit ? 'VICTORY (FORFEIT)' : 'VICTORY';
-            systemText = 'System_Link_Stable';
+        if (result === 'victory') {
+            cls_theme = 'theme-victory';
+            title = match_dt.forfeit ? 'VICTORY (FORFEIT)' : 'VICTORY';
+            sys_txt = 'System_Link_Stable';
             desc = 'Performance rating exceeds regional average.';
-        } else if (resultType === 'defeat') {
-            classTheme = 'theme-defeat';
+        } else if (result === 'defeat') {
+            cls_theme = 'theme-defeat';
             title = 'DEFEAT';
-            systemText = 'System_Link_Degraded';
+            sys_txt = 'System_Link_Degraded';
             desc = 'Rating adjustment applied based on opponent difficulty offset.';
         } else {
-            classTheme = 'theme-draw';
+            cls_theme = 'theme-draw';
             title = 'DRAW';
-            systemText = 'System_Link_Stable';
+            sys_txt = 'System_Link_Stable';
             desc = 'Rating adjusted based on performance equalization factors.';
         }
 
-        // Apply theme 
-        overlay.className = `result-overlay ${classTheme}`; 
+        res_overlay.className = `result-overlay ${cls_theme}`; 
         
-        // Inject Backend Text
-        document.getElementById('result-title').innerText = title;
-        document.getElementById('result-subtitle').innerText = reasonText;
-        document.getElementById('result-system-text').innerText = systemText;
+        document.getElementById('res-title').innerText = title;
+        document.getElementById('res-subtitle').innerText = reason;
+        document.getElementById('res-sys-txt').innerText = sys_txt;
         
-        // Inject Backend ELO Math
-        document.getElementById('res-prev-elo').innerText = prevElo;
-        document.getElementById('res-curr-elo').innerText = currentElo;
-        document.getElementById('res-elo-badge').innerText = eloChange > 0 ? `+${eloChange}` : eloChange;
+        document.getElementById('res-prev-elo').innerText = prev_elo;
+        document.getElementById('res-curr-elo').innerText = cur_elo;
+        document.getElementById('res-elo-badge').innerText = elo_chg > 0 ? `+${elo_chg}` : elo_chg;
         document.getElementById('res-elo-desc').innerText = desc;
 
-        // Inject Match Stats
-        document.getElementById('res-total-moves').innerText = totalMoves;
-        document.getElementById('res-time-elapsed').innerText = timeElapsed;
+        document.getElementById('res-moves').innerText = total_moves;
+        document.getElementById('res-time').innerText = time_str;
 
-        // Build Final Logs
-        const finalLogsBox = document.getElementById('res-final-logs');
-        finalLogsBox.innerHTML = ''; 
+        // Build final log entries
+        const logs_box = document.getElementById('res-logs');
+        logs_box.innerHTML = ''; 
         const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" });
         
-        finalLogsBox.innerHTML += `
+        logs_box.innerHTML += `
             <div class="res-log-line"><span class="res-log-time">[${time}]</span> <span class="res-log-text">Match commenced. Handshake verified.</span></div>
-            <div class="res-log-line"><span class="res-log-time">[${time}]</span> <span class="res-log-text">${totalMoves} tactical executions recorded.</span></div>
+            <div class="res-log-line"><span class="res-log-time">[${time}]</span> <span class="res-log-text">${total_moves} tactical executions recorded.</span></div>
             <div class="res-log-line"><span class="res-log-time">[${time}]</span> <span class="res-log-bold">MATCH_TERMINATED: ${title}</span></div>
         `;
 
-        // Save new ELO locally so the Lobby shows the correct number immediately
-        sessionStorage.setItem("arena_auth_elo", currentElo.toString());
+        sessionStorage.setItem("arena_auth_elo", cur_elo.toString());
     }
 
-    // Resign Match Custom Modal Logic
+    // Resign button + modal
     document.getElementById('btn-resign').addEventListener('click', () => {
-        if (gameActive) {
-            showModal('modal-confirm');
-        }
+        if (game_on) show_modal('modal-confirm');
     });
 
     document.getElementById('btn-confirm-resign').addEventListener('click', () => {
-        if (gameActive) {
-            gameSocket.send(JSON.stringify({ type: "resign" }));
-            hideModal();
+        if (game_on) {
+            gs.send(JSON.stringify({ type: "resign" }));
+            hide_modal();
         }
     });
 
-    document.getElementById('btn-cancel-resign').addEventListener('click', () => {
-        hideModal();
-    });
+    document.getElementById('btn-cancel-resign').addEventListener('click', () => { hide_modal(); });
 
-    // White Action Buttons Logic (Rematch functionality is completely removed)
-    document.getElementById('btn-return-lobby').addEventListener('click', () => { window.location.href = "lobby_command_center.html"; });
-    document.getElementById('btn-view-leaderboard').addEventListener('click', () => { window.location.href = "leaderboard.html"; });
+    // Post-match nav buttons
+    document.getElementById('btn-lobby').addEventListener('click', () => { window.location.href = "lobby_command_center.html"; });
+    document.getElementById('btn-ldb').addEventListener('click', () => { window.location.href = "leaderboard.html"; });
 
 });

@@ -1,4 +1,4 @@
-/* 1. config root vars */
+/* Colors */
 :root {
     --color-surface-dim: #131313;
     --color-surface-lowest: #0e0e0e;
@@ -21,7 +21,7 @@
     --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* 2. normalise defaults */
+/* Reset */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -57,12 +57,18 @@ button {
     display: none !important;
 }
 
-/* 3. texts */
-.font-header { font-family: var(--font-header); }
-.font-body { font-family: var(--font-body); }
-.font-mono { font-family: var(--font-mono); }
+/* Fonts */
+.font-header {
+    font-family: var(--font-header);
+}
+.font-body {
+    font-family: var(--font-body);
+}
+.font-mono {
+    font-family: var(--font-mono);
+}
 
-/* 4. icon pack overrides */
+/* Icons */
 .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     font-size: 24px;
@@ -72,7 +78,7 @@ button {
     user-select: none;
 }
 
-/* 5. top nav bar */
+/* Top header */
 #site-header {
     position: absolute;
     top: 0;
@@ -143,7 +149,7 @@ button {
     color: var(--color-primary);
 }
 
-/* 6. page layout wrappers */
+/* Page layout */
 #main-container {
     position: relative;
     min-height: 100vh;
@@ -196,10 +202,13 @@ button {
 }
 
 @media (max-width: 768px) {
-    #slanted-bg { width: 40%; left: -10%; }
+    #slanted-bg {
+        width: 40%;
+        left: -10%;
+    }
 }
 
-/* 7. central element structures */
+/* Center card */
 #center-card {
     position: relative;
     z-index: 10;
@@ -249,7 +258,7 @@ button {
     white-space: nowrap;
 }
 
-/* 8. camera view sizing */
+/* Camera view */
 #cam-view {
     position: relative;
     width: 100%;
@@ -258,7 +267,7 @@ button {
     border-radius: 0.75rem;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255,255,255,0.03);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.60), 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 #cam-container {
@@ -268,7 +277,7 @@ button {
 }
 
 #webcam,
-#captured-frame {
+#cap-frame {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -286,8 +295,7 @@ button {
     background: linear-gradient(to top, var(--color-surface-dim), transparent, transparent);
 }
 
-
-/* 9. layout for interactive controls */
+/* Controls section */
 #controls {
     margin-top: 3rem;
     width: 100%;
@@ -319,7 +327,7 @@ button {
     text-transform: uppercase;
 }
 
-/* big scan logic */
+/* Scan button */
 #scan-btn {
     position: relative;
     overflow: hidden;
@@ -367,7 +375,7 @@ button {
     color: var(--color-on-pri-fixed);
 }
 
-/* bottom protocol badge */
+/* Auth badge */
 #auth-badge-wrap {
     margin-top: 1rem;
     display: flex;
@@ -398,7 +406,7 @@ button {
     font-weight: 500;
 }
 
-/* 10. cosmetic text labels sticking to the sides */
+/* Side decorative labels */
 .side-lbl {
     display: none;
     position: fixed;
@@ -433,7 +441,7 @@ button {
     margin: 0 auto;
 }
 
-/* 11. state triggers modified by js */
+/* JS-toggled states */
 .status-ok {
     color: var(--color-secondary) !important;
 }
@@ -442,13 +450,21 @@ button {
     color: var(--color-error) !important;
 }
 
-/* standard screen checks */
+/* Responsive */
 @media (min-width: 768px) {
-    #cam-view { aspect-ratio: 16 / 10; }
-    .arena-heading { font-size: 6rem; }
-    .header-status { display: flex; }
+    #cam-view {
+        aspect-ratio: 16 / 10;
+    }
+    .arena-heading {
+        font-size: 6rem;
+    }
+    .header-status {
+        display: flex;
+    }
 }
 
 @media (min-width: 1024px) {
-    .side-lbl { display: block; }
+    .side-lbl {
+        display: block;
+    }
 }
