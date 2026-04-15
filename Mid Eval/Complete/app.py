@@ -7,7 +7,6 @@ import pymongo
 import uvicorn
 from datetime import datetime
 
-# RESTORED: WebSocketDisconnect
 from fastapi import FastAPI, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,17 +14,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
-# SQLAlchemy components
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, or_
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
-# Local project modules
 import facial_recognition_module
 from engine import TicTacToeEngine
 
 load_dotenv()
 
-# --- STANDALONE DATABASE CONFIGURATION ---
 raw_password = os.getenv('DB_PASSWORD', '')
 encoded_password = urllib.parse.quote(raw_password)
 
@@ -35,7 +31,6 @@ engine = create_engine(DB_URL, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- STANDALONE MODELS ---
 class User(Base):
     __tablename__ = "users"
     uid = Column(String(50), primary_key=True)
@@ -66,12 +61,10 @@ def get_db():
     finally:
         db.close()
 
-# --- APP INITIALIZATION & CORS ---
 app = FastAPI()
 app.mount("/Frontend", StaticFiles(directory="Frontend"), name="frontend")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "super-secret-key"))
 
-# NGROK FIX MERGED: Kept your localhost bases, but explicitly added the Ngrok URL
 origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5001,http://127.0.0.1:5001,https://dole-outfit-expulsion.ngrok-free.dev")
 allowed_origins = [origin.strip() for origin in origins_env.split(",")]
 
@@ -83,7 +76,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- UTILITY FUNCTIONS ---
+# pulls all face images from mongo for comparison
 def get_mg_imgs():
     db_dt = {}
     try:
@@ -115,33 +108,83 @@ def get_player_data(db: Session, include_rank: bool = False):
         results.append(entry)
     return results
 
-# --- API ROUTES ---
+# tracks background login jobs so the frontend can poll for results
+login_tasks = {}
+
 @app.post('/login')
-async def handle_login(req: Request, db: Session = Depends(get_db)):
-    # RESTORED: Your exact original logic structure.
+async def handle_login(req: Request):
     data = await req.json()
     b64_img = data.get('image')
-    if not b64_img:
-        return JSONResponse(status_code=400, content={"success": False, "message": "No image"})
+    att_id = data.get('attempt_id')
 
-    cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
-    mg_db = await asyncio.to_thread(get_mg_imgs)
-    m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, mg_db)
+    if not att_id or not b64_img:
+        return JSONResponse(status_code=400, content={"success": False, "message": "Invalid request"})
+
+    login_tasks[att_id] = {"status": "processing"}
     
-    if not m_uid:
-        return JSONResponse(status_code=401, content={"success": False, "message": "Face not recognized"})
+    # kicks off the heavy recognition in background so we respond before ngrok times out 
+    asyncio.create_task(run_recognition(b64_img, att_id))
+    return {"success": True, "message": "Processing started"}
 
-    user = db.query(User).filter(User.uid == m_uid).first()
-    if not user:
-        return JSONResponse(status_code=404, content={"success": False, "message": "User not in MySQL"})
+async def run_recognition(b64_img, att_id):
+    try:
+        cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
+        
+        mg_db = await asyncio.to_thread(get_mg_imgs)
+        m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, mg_db)
+        
+        if not m_uid:
+            login_tasks[att_id] = {"status": "error", "message": "FACE NOT RECOGNIZED"}
+            return
 
-    user.is_online = True
-    db.commit()
+        with SessionLocal() as db:
+            user = db.query(User).filter(User.uid == m_uid).first()
+            if not user:
+                login_tasks[att_id] = {"status": "error", "message": "User not in MySQL"}
+                return
 
-    req.session['uid'], req.session['name'] = user.uid, user.name
-    await lobby_mgr.broadcast({"type": "presence", "uid": user.uid, "status": "online"})
+            user.is_online = True
+            db.commit()
+
+            login_tasks[att_id] = {
+                "status": "success",
+                "uid": user.uid,
+                "name": user.name,
+                "elo_rating": user.elo_rating
+            }
+
+            await lobby_mgr.broadcast({"type": "presence", "uid": user.uid, "status": "online"})
+    except Exception as e:
+        login_tasks[att_id] = {"status": "error", "message": str(e)}
+
+# frontend polls this with the attempt tag to see if recognition finished
+@app.get('/auth-status/{att_id}')
+async def check_auth(att_id: str, req: Request):
+    task = login_tasks.get(att_id)
     
-    return {"success": True, "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
+    if not task:
+        return {"status": "pending"}
+
+    if task["status"] == "success":
+        # set session cookie now that we have a fast response window
+        req.session['uid'] = task["uid"]
+        req.session['name'] = task["name"]
+        
+        login_tasks.pop(att_id, None)
+        
+        return {
+            "authenticated": True, 
+            "uid": task["uid"], 
+            "name": task["name"], 
+            "elo_rating": task["elo_rating"]
+        }
+        
+    elif task["status"] == "error":
+        msg = task["message"]
+        login_tasks.pop(att_id, None)
+        return {"authenticated": False, "error": msg}
+        
+    return {"status": "processing"}
 
 @app.post('/logout')
 async def logout(req: Request, db: Session = Depends(get_db)):
@@ -207,7 +250,7 @@ def init_match(rid: str, uid: str, db: Session = Depends(get_db)):
     my_user = db.query(User).filter(User.uid == uid).first()
     opp_user = db.query(User).filter(User.uid == opp_uid).first()
 
-    def calc_winrate(user_id):
+    def calc_wr(user_id):
         total = db.query(MatchHistory).filter(or_(MatchHistory.player1_uid == user_id, MatchHistory.player2_uid == user_id)).count()
         wins = db.query(MatchHistory).filter(MatchHistory.winner_uid == user_id).count()
         return round((wins / total) * 100, 1) if total > 0 else 0.0
@@ -215,13 +258,12 @@ def init_match(rid: str, uid: str, db: Session = Depends(get_db)):
     return {
         "opponent_name": opp_user.name if opp_user else f"OPERATOR {opp_uid}",
         "opponent_elo": opp_user.elo_rating if opp_user else 1200,
-        "opponent_winrate": calc_winrate(opp_uid),
+        "opponent_winrate": calc_wr(opp_uid),
         "opponent_region": "GLOBAL", 
-        "my_winrate": calc_winrate(uid),
+        "my_winrate": calc_wr(uid),
         "my_streak": "-"             
     }
 
-# --- WEBSOCKET MANAGERS ---
 class LobbyManager:
     def __init__(self):
         self.connections: dict[str, WebSocket] = {}
@@ -321,7 +363,6 @@ async def finalize_match(rid: str, forfeit_winner: str = None):
         })
     game_mgr.rooms.pop(rid, None)
 
-# --- WEBSOCKET ENDPOINTS ---
 @app.websocket("/ws/lobby/{uid}")
 async def ws_lobby(ws: WebSocket, uid: str):
     await lobby_mgr.connect(uid, ws)
@@ -341,7 +382,6 @@ async def ws_lobby(ws: WebSocket, uid: str):
                 target = msg.get("target_uid")
                 pending_challenges[uid] = target
                 
-                # MERGED: Kept the new Lobby stats logic you requested
                 with SessionLocal() as db:
                     challenger = db.query(User).filter(User.uid == uid).first()
                     c_name = challenger.name if challenger else f"OPERATOR {uid}"
@@ -349,14 +389,14 @@ async def ws_lobby(ws: WebSocket, uid: str):
                     
                     total = db.query(MatchHistory).filter(or_(MatchHistory.player1_uid == uid, MatchHistory.player2_uid == uid)).count()
                     wins = db.query(MatchHistory).filter(MatchHistory.winner_uid == uid).count()
-                    c_winrate = round((wins / total) * 100, 1) if total > 0 else 0.0
+                    c_wr = round((wins / total) * 100, 1) if total > 0 else 0.0
 
                 await lobby_mgr.send_to(target, {
                     "type": "challenge_received", 
                     "from_uid": uid,
                     "challenger_name": c_name,
                     "challenger_elo": c_elo,
-                    "challenger_winrate": c_winrate
+                    "challenger_winrate": c_wr
                 })
 
             elif mtype == "challenge_response":
@@ -381,7 +421,6 @@ async def ws_lobby(ws: WebSocket, uid: str):
                     pending_challenges.pop(uid, None)
                     await lobby_mgr.send_to(target, {"type": "challenge_cancelled"})
     
-    # RESTORED: Your original disconnect exception
     except WebSocketDisconnect:
         await lobby_mgr.handle_disconnect(uid)
 
@@ -421,7 +460,6 @@ async def ws_game(ws: WebSocket, rid: str, uid: str):
                 other_uid = [p for p in room["players"] if p != uid][0]
                 await finalize_match(rid, forfeit_winner=other_uid)
                 
-            # RESTORED: Your original draw logic
             elif mtype == "offer_draw":
                 other_uid = [p for p in room["players"] if p != uid][0]
                 if other_uid in room["connections"]:
@@ -445,4 +483,4 @@ async def ws_game(ws: WebSocket, rid: str, uid: str):
                 print(f"Finalize match crashed on disconnect: {inner_e}")
 
 if __name__ == '__main__':
-    uvicorn.run("app:app", host="127.0.0.1", port=5001, reload=True)
+    uvicorn.run("app:app", host="127.0.0.1", port=5001, reload=False)

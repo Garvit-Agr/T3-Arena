@@ -7,7 +7,6 @@ import urllib.parse
 from datetime import datetime
 from dotenv import load_dotenv
 
-# SQLAlchemy components
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -17,7 +16,6 @@ load_dotenv(env_pth)
 
 REQ_TOUT = 5
 
-# 1. STANDALONE DATABASE CONFIGURATION
 raw_password = os.getenv('DB_PASSWORD', '')
 encoded_password = urllib.parse.quote(raw_password)
 
@@ -27,7 +25,6 @@ engine = create_engine(DB_URL, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# 2. STANDALONE SCHEMA DEFINITIONS (The Source of Truth)
 class User(Base):
     __tablename__ = "users"
     uid = Column(String(50), primary_key=True)
@@ -50,24 +47,22 @@ class MatchHistory(Base):
     played_at = Column(DateTime, default=datetime.utcnow)
 
 def start_harvest(csv_path_1, csv_path_2):
-    # 3. AUTO-CREATE ALL TABLES (Creation Logic)
     print("Verifying database schema...")
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
-    print("SQLAlchemy pipeline secured")
+    print("MySQL connection ready")
 
-    # init mongo pipe for blob storage
+    # mongo for storing profile image blobs
     try:
         mg_conn = pymongo.MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
         mg_db   = mg_conn[os.getenv("DB_NAME", "arena_db")]
         mg_col  = mg_db["profile_images"]
-        print("MongoDB pipeline secured")
+        print("MongoDB connection ready")
     except Exception as e:
         print(f"MongoDB connection failed: {e}")
         return
 
-    # Helper: Safe Upsert
-    # Preserves Elo ratings if the script is run multiple times
+    # updates name if user exists, otherwise creates with default elo
     def upsert_user(uid, nm):
         try:
             user = db.query(User).filter(User.uid == uid).first()
@@ -125,15 +120,14 @@ def start_harvest(csv_path_1, csv_path_2):
                 except Exception:
                     print(f"Timeout scraping record {uid}")
 
-    # cycle thru datasets
     scrape_file(csv_path_1, is_ta_list=False)
     scrape_file(csv_path_2, is_ta_list=True)
 
     db.close()
-    print("\nSQLAlchemy tore down correctly")
+    print("\nMySQL closed")
     mg_conn.close()
-    print("MongoDB tore down correctly")
-    print("Harvest routine finalized")
+    print("MongoDB closed")
+    print("Harvest complete")
 
 if __name__ == "__main__":
     csv_1 = os.path.join(cur_dir, 'batch_data.csv')

@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sts_text = document.getElementById('sys-sts');
     const ctx = canvas.getContext('2d');
 
-    // Start camera feed
     navigator.mediaDevices
         .getUserMedia({ video: { facingMode: 'user' } })
         .then(stream => { video.srcObject = stream; })
@@ -18,15 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sts_text.classList.add('status-err');
         });
 
-    // Scan button handler
     scan_btn.addEventListener('click', () => {
         if (scan_btn.disabled) return;
 
         scan_btn.disabled = true;
-        btn_text.textContent = 'EXTRACTING BIOMETRICS...';
-        sts_text.textContent = 'TRANSMITTING TO AUTH SERVER...';
+        btn_text.textContent = 'TRANSMITTING BIOMETRICS...';
+        sts_text.textContent = 'ESTABLISHING SECURE CONNECTION...';
 
-        // Capture mirrored frame
+        // mirror + capture
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.translate(canvas.width, 0);
@@ -34,41 +32,71 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         const b64_img = canvas.toDataURL('image/jpeg', 0.9);
-
-        // Swap live feed with snapshot
         cap_frame.src = b64_img;
         video.classList.add('hidden');
         cap_frame.classList.remove('hidden');
 
-        // Dynamic base for localhost vs ngrok
+        // pick local or ngrok base
         const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
             ? 'http://localhost:5001' 
             : window.location.origin;
 
+        // unique tag so we can poll for this specific attempt
+        const att_id = Math.random().toString(36).substring(2, 15);
+
+        // fire off login, then immediately start polling regardless of outcome
         fetch(api + '/login', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
                 'ngrok-skip-browser-warning': 'true'
             },
-            body: JSON.stringify({ image: b64_img }),
+            body: JSON.stringify({ image: b64_img, attempt_id: att_id }),
             credentials: 'include',
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                on_success(data);
-            } else {
-                throw new Error('No facial match found.');
-            }
-        })
-        .catch(err => {
-            console.error('Auth failed:', err);
-            on_error();
+        .catch(() => {}) 
+        .finally(() => {
+            poll_status(api, att_id);
         });
     });
 
-    // Login success — store session, redirect
+    // keeps checking if the background recognition worker finished
+    function poll_status(api, att_id) {
+        btn_text.textContent = 'ANALYZING 250 RECORDS...';
+        sts_text.textContent = 'RECOGNITION IN PROGRESS — THIS MAY TAKE 3-5 MINUTES';
+        sts_text.classList.remove('status-err');
+        sts_text.classList.add('status-ok');
+
+        let ticks = 0;
+        const iv = setInterval(() => {
+            ticks++;
+            if (ticks > 120) {
+                clearInterval(iv);
+                on_error("VERIFICATION TIMED OUT");
+                return;
+            }
+
+            fetch(`${api}/auth-status/${att_id}`, { 
+                credentials: 'include',
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            })
+            .then(res => {
+                if (res.ok) return res.json();
+            })
+            .then(dt => {
+                if (!dt) return;
+                if (dt.authenticated === true) {
+                    clearInterval(iv);
+                    on_success(dt);
+                } else if (dt.error) {
+                    clearInterval(iv);
+                    on_error(dt.error);
+                }
+            })
+            .catch(() => {});
+        }, 3000);
+    }
+
     function on_success(data) {
         btn_text.textContent = 'ACCESS GRANTED';
         sts_text.textContent = `WELCOME, ${data.name.toUpperCase()}`;
@@ -83,15 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
-    // Show error state
-    function on_error() {
-        btn_text.textContent = 'AUTH SERVER OFFLINE / FAILED';
-        sts_text.textContent = 'CONNECTION REFUSED. RETRY?';
+    function on_error(msg) {
+        btn_text.textContent = 'AUTH FAILED';
+        sts_text.textContent = msg ? `${msg.toUpperCase()}. RETRY?` : 'CONNECTION REFUSED. RETRY?';
+        sts_text.classList.remove('status-ok');
         sts_text.classList.add('status-err');
-        setTimeout(reset_ui, 2500);
+        setTimeout(reset_ui, 3000);
     }
 
-    // Reset to initial state
     function reset_ui() {
         btn_text.textContent = 'SCAN IDENTITY';
         sts_text.textContent = 'SYSTEM READY: AWAITING INPUT';
