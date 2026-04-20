@@ -1,5 +1,5 @@
 def main():
-    print("Hello from iss-project!")
+    print("Hello from t3-arena")
 
 
 if __name__ == "__main__":

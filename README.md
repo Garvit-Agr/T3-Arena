@@ -1,4 +1,4 @@
-# ISS-Project
+# T3-Arena
 ---
 
 ## Team: *read -p team_name*
