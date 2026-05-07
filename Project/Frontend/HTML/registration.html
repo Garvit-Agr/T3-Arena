@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARENA_OS — Registration</title>
+  <link rel="stylesheet" href="../CSS/registration.css">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <main class="page-wrapper">
+    <div class="console-box" id="main-console">
+
+      <div class="edge-pulse" aria-hidden="true"></div>
+
+      <section class="panel panel-left" id="panel-left" aria-label="Registration form">
+        <header class="panel-header">
+          <div class="logo-row">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="2" y="3" width="20" height="14" rx="1" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M7 8l3 3-3 3M13 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <h1 class="logo-text">ARENA_OS</h1>
+          </div>
+          <div class="status-row">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-label">System Online / Initialization Protocol</span>
+          </div>
+        </header>
+
+        <form id="reg-form" novalidate autocomplete="off">
+          <div class="field-group" id="group-userid">
+            <label class="field-label" for="user_id">
+              <span>User_ID</span>
+              <span class="field-required">[REQUIRED]</span>
+            </label>
+            <div class="field-wrap">
+              <svg class="field-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input id="user_id" class="field-input" type="text" placeholder="Enter Callsign (6–15 chars)" minlength="6" maxlength="15" autocomplete="off" spellcheck="false" />
+            </div>
+            <span class="field-error" id="err-userid" role="alert" aria-live="polite"></span>
+          </div>
+
+          <div class="field-group" id="group-name">
+            <label class="field-label" for="name">
+              <span>Name</span>
+              <span class="field-required">[REQUIRED]</span>
+            </label>
+            <div class="field-wrap">
+              <svg class="field-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M4 17v-1a5 5 0 015-5h2a5 5 0 015 5v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="10" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              <input id="name" class="field-input" type="text" placeholder="Enter Full Name" autocomplete="off" spellcheck="false" />
+            </div>
+            <span class="field-error" id="err-name" role="alert" aria-live="polite"></span>
+          </div>
+
+          <div class="field-group" id="group-password">
+            <label class="field-label" for="password">
+              <span>Access_Key</span>
+              <span class="field-required">[REQUIRED]</span>
+            </label>
+            <div class="field-wrap">
+              <svg class="field-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="4" y="9" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M7 9V6a3 3 0 116 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <input id="password" class="field-input" type="password" placeholder="••••••••••••" autocomplete="new-password" />
+              <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Toggle password visibility">
+                <svg id="eye-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z" stroke="currentColor" stroke-width="1.5"/>
+                  <circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </button>
+            </div>
+            <div class="pw-strength-row">
+              <div class="pw-bars">
+                <div class="pw-bar" id="bar1"></div>
+                <div class="pw-bar" id="bar2"></div>
+                <div class="pw-bar" id="bar3"></div>
+                <div class="pw-bar" id="bar4"></div>
+              </div>
+              <span class="pw-enc">ENC: 256-BIT</span>
+            </div>
+            <span class="field-error" id="err-password" role="alert" aria-live="polite"></span>
+            <ul class="pw-rules" aria-label="Password requirements">
+              <li id="rule-upper">Uppercase letter</li>
+              <li id="rule-lower">Lowercase letter</li>
+              <li id="rule-number">Number</li>
+              <li id="rule-special">Special character</li>
+            </ul>
+          </div>
+        </form>
+      </section>
+
+      <div class="panel-divider" id="panel-divider" aria-hidden="true"></div>
+
+      <section class="panel panel-right" aria-label="Biometric capture">
+        <div class="right-header">
+          <h2 class="right-title" id="right-title">Identity Signature</h2>
+          <button type="button" class="btn-close-panel" id="btn-close-reg" aria-label="Cancel and return to login">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+
+          <span class="scan-badge" id="scan-badge">
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M3 7V4h3M17 7V4h-3M3 13v3h3M17 13v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            SCAN ACTIVE
+          </span>
+        </div>
+
+        <div class="camera-container" id="camera-container">
+          <div class="bracket tl" aria-hidden="true"></div>
+          <div class="bracket tr" aria-hidden="true"></div>
+          <div class="bracket bl" aria-hidden="true"></div>
+          <div class="bracket br" aria-hidden="true"></div>
+
+          <video id="video-feed" class="camera-media" autoplay muted playsinline aria-label="Live camera feed"></video>
+          <canvas id="capture-canvas" class="camera-media hidden" aria-label="Captured identity photo"></canvas>
+
+        </div>
+
+        <div class="capture-success hidden" id="capture-success" aria-live="polite">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Identity Captured</span>
+        </div>
+
+        <div class="camera-error hidden" id="camera-error" role="alert">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 6v4M10 13v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span id="camera-error-text">Camera access denied. Please allow camera permissions and reload.</span>
+        </div>
+
+        <div class="controls-row">
+          <button type="button" class="btn-retake" id="btn-retake" disabled aria-label="Retake photo">
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M4 10a6 6 0 016-6 6 6 0 014.24 1.76L16 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M16 4v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Retake
+          </button>
+
+          <button type="button" class="btn-capture" id="btn-capture" aria-label="Capture identity photo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M9 3H4a1 1 0 00-1 1v1M15 3h5a1 1 0 011 1v1M20 20H4a1 1 0 01-1-1v-1M3 9v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            Capture Identity
+          </button>
+
+          <button type="button" class="btn-next hidden" id="btn-next" aria-label="Proceed to next step">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="btn-next-text">Next</span>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <div class="modal-overlay hidden" id="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" id="sys-modal">
+      <div class="modal-icon" id="modal-icon" aria-hidden="true">
+        </div>
+      <h3 class="modal-title" id="modal-title">SYSTEM ALERT</h3>
+      <p class="modal-body" id="modal-desc">Processing request...</p>
+      <div class="modal-meta hidden" id="modal-meta"></div>
+      
+      <div class="modal-actions" id="modal-actions">
+        </div>
+    </div>
+  </div>
+
+  <script src="../JS/registration.js" defer></script>
+</body>
+</html>
