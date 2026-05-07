@@ -14,8 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, or_
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, or_, func
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+import bcrypt
 
 import facial_recognition_module
 from engine import TicTacToeEngine
@@ -25,7 +26,8 @@ load_dotenv()
 raw_password = os.getenv('DB_PASSWORD', '')
 encoded_password = urllib.parse.quote(raw_password)
 
-DB_URL = f"mysql+mysqlconnector://{os.getenv('DB_USER')}:{encoded_password}@{os.getenv('DB_HOST', 'localhost')}/{os.getenv('DB_NAME', 'arena_db')}"
+# Updated for Supabase (PostgreSQL)
+DB_URL = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{encoded_password}@{os.getenv('DB_HOST')}:5432/{os.getenv('DB_NAME', 'postgres')}"
 
 engine = create_engine(DB_URL, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -35,6 +37,13 @@ class User(Base):
     __tablename__ = "users"
     uid = Column(String(50), primary_key=True)
     name = Column(String(100))
+    
+    # --- NEW SECURITY & LRU COLUMNS ---
+    password_hash = Column(String(255), nullable=True) 
+    biometrics_active = Column(Boolean, default=True)  
+    last_active = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    # ----------------------------------
+    
     elo_rating = Column(Integer, default=1200)
     is_online = Column(Boolean, default=False)
     is_fighting = Column(Boolean, default=False)
@@ -66,6 +75,29 @@ enc_cache = {}
 
 app = FastAPI()
 
+def get_mg_imgs():
+    """Fetches all stored facial encodings from MongoDB on startup"""
+    try:
+        cn = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        col = cn[os.getenv("DB_NAME_MONGO", "arena_db")]["profile_images"]
+        
+        # Fetch the documents from MongoDB
+        docs = col.find({}, {"_id": 0, "uid": 1, "image_data": 1})
+        
+        # FIX: Clean the Base64 strings by stripping the prefix (if it exists)
+        img_dict = {}
+        for doc in docs:
+            raw_b64 = doc["image_data"]
+            # Strip 'data:image/jpeg;base64,' so the AI module gets raw bytes
+            clean_b64 = raw_b64.split(',')[1] if ',' in raw_b64 else raw_b64
+            img_dict[doc["uid"]] = clean_b64
+        
+        cn.close()
+        return img_dict
+        
+    except Exception as e:
+        print(f"Error fetching from MongoDB: {e}")
+        return {}
 @app.on_event("startup")
 def load_encodings():
     global enc_cache
@@ -73,10 +105,23 @@ def load_encodings():
     mg_db = get_mg_imgs()
     enc_cache = facial_recognition_module.build_encodings_cache(mg_db)
 
+
+@app.get('/health')
+async def health_check():
+    """
+    Keep-alive endpoint for cron jobs (e.g., cron-job.org).
+    This ensures the Hugging Face Space doesn't spin down, 
+    without hitting the databases and messing up our LRU timestamps.
+    """
+    return {
+        "status": "alive", 
+        "timestamp": datetime.now().isoformat()
+    }
+
 app.mount("/Frontend", StaticFiles(directory="Frontend"), name="frontend")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "super-secret-key"))
 
-origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5001,http://127.0.0.1:5001,https://dole-outfit-expulsion.ngrok-free.dev")
+origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5001,http://127.0.0.1:5001")
 allowed_origins = [origin.strip() for origin in origins_env.split(",")]
 
 app.add_middleware(
@@ -88,19 +133,136 @@ app.add_middleware(
 )
 
 # pulls all face images from mongo for comparison
-def get_mg_imgs():
-    db_dt = {}
+
+# --- STORAGE LRU CONFIGURATION ---
+MAX_BIOMETRICS_CAP = 400
+
+def manage_biometric_storage(db: Session):
+    """
+    Storage LRU Logic: Protects MongoDB Atlas free tier.
+    Checks if the number of stored faces exceeds the cap. If it does, 
+    it evicts the least recently active user from MongoDB and updates their Supabase record.
+    """
     try:
-        cn = pymongo.MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
-        col = cn[os.getenv("DB_NAME", "arena_db")]["profile_images"]
-        for doc in col.find({}):
-            uid, b64_img = doc.get("uid"), doc.get("image_data")
-            if uid and b64_img:
-                db_dt[uid] = base64.b64decode(b64_img)
+        cn = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        col = cn[os.getenv("DB_NAME_MONGO", "arena_db")]["profile_images"]
+        
+        # 1. Count current documents in MongoDB
+        current_count = col.count_documents({})
+        
+        # 2. Check against the cap
+        if current_count > MAX_BIOMETRICS_CAP:
+            # 3. Query Supabase for the LRU user (oldest last_active timestamp)
+            oldest_user = db.query(User).filter(User.biometrics_active == True).order_by(User.last_active.asc()).first()
+            
+            if oldest_user:
+                print(f"[LRU Engine] Cap exceeded ({current_count}/{MAX_BIOMETRICS_CAP}). Evicting biometrics for UID: {oldest_user.uid}")
+                
+                # 4. Delete the physical image data from MongoDB
+                col.delete_one({"uid": oldest_user.uid})
+                
+                # 5. Flag the user in Supabase so they fall back to password login
+                oldest_user.biometrics_active = False
+                db.commit()
+                
+                # 6. Synchronize RAM cache (We will implement this function in Phase 3.2)
+                sync_ram_cache(oldest_user.uid, remove=True)
+                
         cn.close()
     except Exception as e:
-        print(f"Mongo load error: {e}")
-    return db_dt
+        print(f"[LRU Engine Error]: {e}")
+
+def sync_ram_cache(uid: str, b64_img: str = None, remove: bool = False):
+    """
+    Dynamically updates the in-memory facial encodings cache.
+    Always removes the existing entry to ensure the old face is purged.
+    """
+    global enc_cache
+    
+    # --- FIX: Immediately purge the old face from RAM to prevent ghost matches ---
+    if uid in enc_cache:
+        del enc_cache[uid]
+        print(f"[Cache Sync] Purged existing encoding for UID: {uid}")
+        
+    if remove:
+        return True # Successfully removed
+        
+    if b64_img:
+        # Strip data URI scheme if present
+        cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
+        
+        # Calculate new encoding
+        new_enc = facial_recognition_module.get_face_encoding(cln_img)
+        
+        if new_enc is not None:
+            enc_cache[uid] = new_enc
+            print(f"[Cache Sync] Added new encoding for UID: {uid}")
+            return True # Successfully updated
+        else:
+            print(f"[Cache Sync Error] No face detected in the update image for UID: {uid}")
+            return False # Failed to find a face
+    return False
+@app.post('/signup')
+async def handle_signup(req: Request, db: Session = Depends(get_db)):
+    """
+    Registers a new user. 
+    Saves to Supabase (PostgreSQL), MongoDB Atlas (Image), updates RAM, and triggers LRU.
+    """
+    data = await req.json()
+    uid = data.get('uid')
+    name = data.get('name')
+    password = data.get('password')
+    b64_img = data.get('image')
+
+    # 1. Validate Payload
+    if not all([uid, name, password, b64_img]):
+        return JSONResponse(status_code=400, content={"success": False, "message": "Missing required fields."})
+
+    # 2. Check for existing user in Supabase
+    existing_user = db.query(User).filter(User.uid == uid).first()
+    if existing_user:
+        return JSONResponse(status_code=400, content={"success": False, "message": "User ID already registered."})
+
+    try:
+        # 3. Secure the password
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        # 4. Create the Supabase Record
+        # last_active is automatically set to now() by our model definition
+        new_user = User(
+            uid=uid,
+            name=name,
+            password_hash=hashed_pw,
+            biometrics_active=True,
+            elo_rating=1200,
+            is_online=False,
+            is_fighting=False
+        )
+        db.add(new_user)
+        db.commit()
+
+        # 5. Save the image to MongoDB Atlas
+        cn = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        col = cn[os.getenv("DB_NAME_MONGO", "arena_db")]["profile_images"]
+        col.update_one(
+            {"uid": uid},
+            {"$set": {"uid": uid, "image_data": b64_img}},
+            upsert=True
+        )
+        cn.close()
+
+        # 6. Synchronize RAM Cache dynamically
+        await asyncio.to_thread(sync_ram_cache, uid, b64_img=b64_img)
+
+        # 7. Trigger the Storage LRU Engine to ensure we haven't breached the 400 user cap
+        await asyncio.to_thread(manage_biometric_storage, db)
+
+        return {"success": True, "message": "Registration successful. Biometrics secured."}
+
+    except Exception as e:
+        db.rollback()
+        print(f"[Signup Error]: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "message": "Internal server error during registration."})
 
 def get_player_data(db: Session, include_rank: bool = False):
     users = db.query(User).order_by(User.elo_rating.desc()).all()
@@ -121,35 +283,120 @@ def get_player_data(db: Session, include_rank: bool = False):
 
 @app.post('/login')
 async def handle_login(req: Request, db: Session = Depends(get_db)):
+    """
+    Hybrid Login Gateway.
+    Accepts EITHER a biometric webcam frame OR a uid + password fallback.
+    """
     data = await req.json()
     b64_img = data.get('image')
+    uid = data.get('uid')
+    password = data.get('password')
 
-    if not b64_img:
-        return JSONResponse(status_code=400, content={"success": False, "message": "No image provided"})
+    # --- ROUTE A: BIOMETRIC LOGIN ---
+    if b64_img:
+        try:
+            cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
+            
+            # Check the dynamic RAM cache
+            m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, enc_cache)
+            
+            if not m_uid:
+                # Tell frontend to switch to the password fallback modal
+                return JSONResponse(status_code=401, content={"success": False, "message": "FACE NOT RECOGNIZED", "action": "fallback_to_password"})
 
-    try:
-        cln_img = b64_img.split(',')[1] if ',' in b64_img else b64_img
+            user = db.query(User).filter(User.uid == m_uid).first()
+            if not user:
+                return JSONResponse(status_code=404, content={"success": False, "message": "User not in Database"})
+
+            # Login successful: Update status and touch last_active
+            user.is_online = True
+            db.commit()
+
+            req.session['uid'] = user.uid
+            req.session['name'] = user.name
+
+            await lobby_mgr.broadcast({"type": "presence", "uid": user.uid, "status": "online"})
+            return {"success": True, "action": "login", "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
+            
+        except Exception as e:
+            print(f"[Biometric Login Error]: {e}")
+            return JSONResponse(status_code=500, content={"success": False, "message": "Server error during scan."})
+
+    # --- ROUTE B: PASSWORD FALLBACK LOGIN ---
+    elif uid and password:
+        user = db.query(User).filter(User.uid == uid).first()
         
-        m_uid = await asyncio.to_thread(facial_recognition_module.find_closest_match, cln_img, enc_cache)
-        
-        if not m_uid:
-            return JSONResponse(status_code=401, content={"success": False, "message": "FACE NOT RECOGNIZED"})
-
-        user = db.query(User).filter(User.uid == m_uid).first()
-        if not user:
-            return JSONResponse(status_code=404, content={"success": False, "message": "User not in MySQL"})
-
+        # Verify user exists and check the bcrypt hash
+        if not user or not user.password_hash or not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            return JSONResponse(status_code=401, content={"success": False, "message": "Invalid UID or Password."})
+            
+        # Password is correct! Let's log them in and update their LRU timestamp
         user.is_online = True
-        db.commit()
-
+        db.commit() 
+        
         req.session['uid'] = user.uid
         req.session['name'] = user.name
-
         await lobby_mgr.broadcast({"type": "presence", "uid": user.uid, "status": "online"})
-        return {"success": True, "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
         
+        # Determine why they used the fallback so the frontend knows what pop-up to show
+        if user.biometrics_active:
+            # Their face is in the DB, but the scan failed (bad lighting, changed appearance)
+            return {"success": True, "action": "prompt_update", "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
+        else:
+            # They were evicted by our MongoDB Storage LRU cap!
+            return {"success": True, "action": "prompt_expired", "uid": user.uid, "name": user.name, "elo_rating": user.elo_rating}
+
+    else:
+        return JSONResponse(status_code=400, content={"success": False, "message": "Provide either an image or a UID/Password."})
+
+
+@app.post('/update_biometrics')
+async def update_biometrics(req: Request, db: Session = Depends(get_db)):
+    data = await req.json()
+    uid = data.get('uid')
+    b64_img = data.get('image')
+
+    if not uid or not b64_img:
+        return JSONResponse(status_code=400, content={"success": False, "message": "Missing UID or Image."})
+
+    user = db.query(User).filter(User.uid == uid).first()
+    if not user:
+        return JSONResponse(status_code=404, content={"success": False, "message": "User not found."})
+
+    try:
+        # 1. Update the image in MongoDB Atlas (overwrites old data)
+        cn = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        col = cn[os.getenv("DB_NAME_MONGO", "arena_db")]["profile_images"]
+        col.update_one({"uid": uid}, {"$set": {"uid": uid, "image_data": b64_img}}, upsert=True)
+        cn.close()
+
+        # 2. Synchronize RAM Cache (Purges old face and attempts to add new)
+        # We wait for the result to see if a face was actually found
+        success = await asyncio.to_thread(sync_ram_cache, uid, b64_img=b64_img)
+
+        if not success:
+            # If no face was found, we mark biometrics as inactive in the DB 
+            # because the old face is gone and the new one failed.
+            user.biometrics_active = False
+            db.commit()
+            return JSONResponse(status_code=422, content={
+                "success": False, 
+                "message": "NO FACE DETECTED. Old biometric data purged. Please try again with a clearer photo."
+            })
+
+        # 3. Success: Mark biometrics active and touch the timestamp
+        user.biometrics_active = True
+        db.commit()
+
+        # 4. Trigger Storage LRU Engine
+        await asyncio.to_thread(manage_biometric_storage, db)
+
+        return {"success": True, "message": "Biometrics successfully updated."}
+
     except Exception as e:
-        return JSONResponse(status_code=500, content={"success": False, "message": str(e)})
+        db.rollback()
+        print(f"[Biometric Update Error]: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "message": "Internal server error."})
 
 @app.post('/logout')
 async def logout(req: Request, db: Session = Depends(get_db)):
@@ -447,4 +694,4 @@ async def ws_game(ws: WebSocket, rid: str, uid: str):
                 print(f"Finalize match crashed on disconnect: {e}")
 
 if __name__ == '__main__':
-    uvicorn.run("app:app", host="127.0.0.1", port=5001, reload=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=False)

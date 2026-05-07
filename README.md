@@ -16,6 +16,7 @@
 <pre>
 1) uv add mysql-connector-python pymongo python-dotenv sqlalchemy websockets
 2) uv add fastapi uvicorn face-recognition itsdangerous numpy pillow "setuptools<70" requests
+3) uv add psycopg2-binary passlib bcrypt
 </pre>
 
 ---
@@ -28,22 +29,27 @@
 
 ---
 
-### .env configurations (near `app.py` and near `harvester.py`):
+### .env configurations (near `app.py`):
 <pre>
-# MySQL Configuration
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=YourMysqlPasswordHere
-DB_NAME=arena_db
+# Relational Database (Supabase / PostgreSQL)
+DB_USER="postgres"
+DB_PASSWORD="<YOUR_SUPABASE_PASSWORD>"
+DB_HOST="<YOUR_SUPABASE_HOST>.supabase.co"
+DB_NAME="postgres"
 
-# MongoDB Configuration
-MONGO_URI=mongodb://localhost:27017
+# Note: The SQLAlchemy connection string in app.py will use these variables to build:
+# postgresql+psycopg2://postgres:<YOUR_SUPABASE_PASSWORD>@<YOUR_SUPABASE_HOST>.supabase.co:5432/postgres
 
-# FastAPI Security
-SESSION_SECRET=a_very_long_random_string_here_for_security
+# Unstructured Database (MongoDB Atlas)
+MONGO_URI="mongodb+srv://<YOUR_ATLAS_USER>:<YOUR_ATLAS_PASSWORD>@<YOUR_ATLAS_CLUSTER>.mongodb.net/?retryWrites=true&w=majority&appName=ArenaDB"
+# Keep this consistent with your app logic
+DB_NAME_MONGO="arena_db"
 
-# Ngrok URL
-ALLOWED_ORIGINS=http://localhost:5001,http://127.0.0.1:5001,https://your-ngrok-url-here.ngrok-free.dev
+# Security & Sessions
+SESSION_SECRET="generate-a-cryptographically-secure-random-string-here"
+
+# CORS / Networking (Add your frontend domain and Hugging Face URL here)
+ALLOWED_ORIGINS="http://localhost:5001,http://127.0.0.1:5001,https://<YOUR_FRONTEND_DOMAIN>.com,https://<YOUR_HUGGINGFACE_SPACE_URL>.hf.space"
 </pre>
 
 ---
@@ -67,10 +73,6 @@ ALLOWED_ORIGINS=http://localhost:5001,http://127.0.0.1:5001,https://your-ngrok-u
 ├── app.py
 ├── engine.py
 ├── facial_recognition_module.py
-├── Fetch_data
-│   ├── batch_data.csv
-│   ├── harvester.py
-│   └── ta_data.csv
 └── Frontend
     ├── CSS
     │   ├── combat_logs.css

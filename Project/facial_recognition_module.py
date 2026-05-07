@@ -84,7 +84,7 @@ def find_closest_match(login_image_data, encodings_cache):
         if d < best_dist:
             best_dist = d
             best_uid = uid
-    threshold = 0.7
+    threshold = 0.55
     if best_dist <= threshold:
         print(f"Match found: UID={best_uid}  distance={best_dist:.3f}")
         return best_uid
