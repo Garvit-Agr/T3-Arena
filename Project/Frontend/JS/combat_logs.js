@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-logout').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
-            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:7860' : 'https://pranaymehtta2007-arena-dbi.hf.space';
             await fetch(`${api}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -172,7 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Pull match history from backend
     async function fetch_logs() {
         try {
-            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+      const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:7860' 
+    : 'https://pranaymehtta2007-arena-dbi.hf.space';
             const res = await fetch(`${api}/api/match-history/${auth_uid}`, { credentials: 'include' });
             const data = await res.json();
 
@@ -300,7 +302,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Keep user online via websocket + handle challenges
     function prep_socket() {
         const ws_proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws_host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'localhost:5001' : window.location.host;
+        const ws_host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+    ? 'localhost:7860' 
+    : 'pranaymehtta2007-arena-dbi.hf.space';
         const lb_sock = new WebSocket(`${ws_proto}//${ws_host}/ws/lobby/${auth_uid}`);
 
         lb_sock.onmessage = (e) => {

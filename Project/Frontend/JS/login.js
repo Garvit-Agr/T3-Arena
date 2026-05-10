@@ -63,8 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
         cap_frame.classList.remove('hidden');
 
         const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:5001' 
-            : window.location.origin;
+    ? 'http://localhost:7860' 
+    : 'https://pranaymehtta2007-arena-dbi.hf.space';
 
         fetch(api + '/login', {
             method: 'POST',
@@ -106,8 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btnPwdLogin.innerHTML = '<span class="material-symbols-outlined">sync</span> VERIFYING...';
         
         const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:5001' 
-            : window.location.origin;
+    ? 'http://localhost:7860' 
+    : 'https://pranaymehtta2007-arena-dbi.hf.space';
 
         fetch(api + '/login', {
             method: 'POST',
