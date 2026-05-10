@@ -120,8 +120,7 @@ async def health_check():
 
 app.mount("/Frontend", StaticFiles(directory="Frontend"), name="frontend")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "super-secret-key"))
-
-origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5001,http://127.0.0.1:5001")
+origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:7860,http://127.0.0.1:5001")
 allowed_origins = [origin.strip() for origin in origins_env.split(",")]
 
 app.add_middleware(
