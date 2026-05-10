@@ -74,8 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function init_match() {
         try {
             const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                ? 'http://localhost:5001' 
-                : window.location.origin;
+    ? 'http://localhost:7860' 
+    : 'https://pranaymehtta2007-arena-dbi.hf.space';
 
             let res = await fetch(`${api}/api/match_init/${room_id}/${auth_uid}`, {
                 method: 'GET',
@@ -158,9 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Websocket connection
     const ws_proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws_host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-        ? 'localhost:5001' 
-        : window.location.host;
+    const ws_host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+    ? 'localhost:7860' 
+    : 'pranaymehtta2007-arena-dbi.hf.space';
 
     const gs = new WebSocket(`${ws_proto}//${ws_host}/ws/game/${room_id}/${auth_uid}`);
 

@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-logout').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
-            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+            const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:7860' : 'https://pranaymehtta2007-arena-dbi.hf.space';
             await fetch(`${api}/logout`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ uid: auth_uid }), credentials: 'include'
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch leaderboard from API
     function fetch_data() {
-        const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:5001' : window.location.origin;
+        const api = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:7860' : 'https://pranaymehtta2007-arena-dbi.hf.space';
         fetch(`${api}/api/leaderboard?t=${Date.now()}`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
@@ -281,7 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-reconnecting websocket
     function prep_socket() {
         const ws_proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws_host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'localhost:5001' : window.location.host;
+        const ws_host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+    ? 'localhost:7860' 
+    : 'pranaymehtta2007-arena-dbi.hf.space';
         lb_sock = new WebSocket(`${ws_proto}//${ws_host}/ws/lobby/${auth_uid}`);
         
         lb_sock.onopen = () => { fetch_data(); };

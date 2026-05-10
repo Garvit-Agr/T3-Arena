@@ -27,7 +27,7 @@ raw_password = os.getenv('DB_PASSWORD', '')
 encoded_password = urllib.parse.quote(raw_password)
 
 # Updated for Supabase (PostgreSQL)
-DB_URL = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{encoded_password}@{os.getenv('DB_HOST')}:5432/{os.getenv('DB_NAME', 'postgres')}"
+DB_URL = f"postgresql+psycopg2://{os.getenv('DB_USER')}:{encoded_password}@{os.getenv('DB_HOST')}:6543/{os.getenv('DB_NAME', 'postgres')}"
 
 engine = create_engine(DB_URL, pool_size=5, max_overflow=10)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
